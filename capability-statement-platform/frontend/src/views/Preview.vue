@@ -48,8 +48,17 @@
         </p>
       </div>
       <!-- View Mode -->
-      <div v-else class="bg-gray-50 p-6 rounded-lg font-mono text-sm whitespace-pre-wrap">
-        {{ displayContent }}
+      <div v-else class="bg-gray-50 p-6 rounded-lg">
+        <!-- Render as HTML if content appears to be HTML, otherwise as plain text -->
+        <div 
+          v-if="isHTMLContent(displayContent)" 
+          v-html="displayContent"
+          class="generated-report-html"
+        ></div>
+        <div 
+          v-else
+          class="font-mono text-sm whitespace-pre-wrap generated-report-text"
+        >{{ displayContent }}</div>
       </div>
     </div>
 
@@ -177,4 +186,59 @@ function exportStatement() {
   a.click()
   URL.revokeObjectURL(url)
 }
+
+function isHTMLContent(content) {
+  if (!content || typeof content !== 'string') return false
+  // Check if content contains HTML tags
+  const htmlTagPattern = /<[a-z][\s\S]*>/i
+  return htmlTagPattern.test(content)
+}
 </script>
+
+<style scoped>
+.generated-report-html {
+  max-width: 816px; /* A4 width */
+  margin: 0 auto;
+  background: white;
+  padding: 96px; /* 1 inch margins */
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1), 0 2px 4px rgba(0, 0, 0, 0.1);
+  min-height: 1123px; /* A4 height */
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #202124;
+}
+
+.generated-report-html :deep(p) {
+  margin: 0 0 0.75rem 0;
+}
+
+.generated-report-html :deep(p:last-child) {
+  margin-bottom: 0;
+}
+
+.generated-report-html :deep(img) {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 1rem 0;
+}
+
+.generated-report-html :deep(table) {
+  border-collapse: collapse;
+  margin: 1rem 0;
+  width: 100%;
+}
+
+.generated-report-html :deep(table td),
+.generated-report-html :deep(table th) {
+  border: 1px solid #ddd;
+  padding: 0.5rem;
+}
+
+.generated-report-text {
+  background: white;
+  padding: 2rem;
+  border-radius: 4px;
+}
+</style>

@@ -6,6 +6,7 @@ import dealsRouter from './deals.js';
 import awardsRouter from './awards.js';
 import capStatementsRouter from './capStatements.js';
 import templatesRouter from './templates.js';
+import templateDefinitionsRouter from './templateDefinitions.js';
 
 const router = express.Router();
 
@@ -19,5 +20,6 @@ router.use('/deals', dealsRouter);
 router.use('/awards', awardsRouter);
 router.use('/cap-statements', capStatementsRouter);
 router.use('/templates', templatesRouter);
+router.use('/template-definitions', templateDefinitionsRouter);
 
 export default router;

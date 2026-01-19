@@ -1,5 +1,6 @@
 import capStatementRepository from '../repositories/capStatementRepository.js';
 import templateService from './templateService.js';
+import templateDefinitionService from './templateDefinitionService.js';
 import dealService from './dealService.js';
 import awardService from './awardService.js';
 import lawyerService from './lawyerService.js';
@@ -41,37 +42,123 @@ class CapStatementService {
       let template = null;
       
       if (templateIdNum) {
-        template = await templateService.getTemplateById(templateIdNum);
-        logger.info('Loaded template', { templateId: templateIdNum, templateName: template.name });
-        
-        // Filter data based on settings if provided
-        let filteredDeals = deals;
-        let filteredAwards = awards;
-        let filteredLawyers = lawyers;
-        
-        if (settings.includeDeals === false) {
-          filteredDeals = [];
+        // Try to load as simple template first
+        try {
+          template = await templateService.getTemplateById(templateIdNum);
+          logger.info('Loaded simple template', { templateId: templateIdNum, templateName: template.name });
+          
+          // Filter data based on settings if provided
+          let filteredDeals = deals;
+          let filteredAwards = awards;
+          let filteredLawyers = lawyers;
+          
+          if (settings.includeDeals === false) {
+            filteredDeals = [];
+          }
+          if (settings.includeAwards === false) {
+            filteredAwards = [];
+          }
+          if (settings.includeLawyers === false) {
+            filteredLawyers = [];
+          }
+          
+          // Populate template with selected data
+          content = templateService.populateTemplate(template.content, {
+            deals: filteredDeals,
+            awards: filteredAwards,
+            lawyers: filteredLawyers
+          });
+          
+          logger.info('Template populated', { 
+            contentLength: content.length,
+            dealsUsed: filteredDeals.length,
+            awardsUsed: filteredAwards.length,
+            lawyersUsed: filteredLawyers.length
+          });
+        } catch (simpleTemplateError) {
+          // If simple template not found, try structured template
+          if (simpleTemplateError.statusCode === 404) {
+            try {
+              const structuredTemplate = await templateDefinitionService.getTemplateDefinitionById(templateIdNum);
+              logger.info('Loaded structured template', { templateId: templateIdNum, templateName: structuredTemplate.name });
+              
+              // Get the document content from structured template
+              const templateContent = await templateDefinitionService.getTemplateContent(templateIdNum, {
+                section_id: 'document'
+              });
+              
+              // Find the full_content entry
+              const documentEntry = templateContent.find(
+                entry => entry.section_id === 'document' && entry.element_id === 'full_content'
+              );
+              
+              if (!documentEntry || !documentEntry.content_value) {
+                throw new Error('Structured template has no content');
+              }
+              
+              // Parse the JSON document structure
+              let documentData;
+              try {
+                documentData = JSON.parse(documentEntry.content_value);
+              } catch (parseError) {
+                logger.error('Error parsing structured template content', { error: parseError.message });
+                throw new Error('Invalid structured template content format');
+              }
+              
+              // Extract HTML content from document structure (pages array with content fields)
+              let templateHtml = '';
+              if (documentData.pages && Array.isArray(documentData.pages)) {
+                templateHtml = documentData.pages.map(page => page.content || '').join('\n');
+              } else {
+                templateHtml = documentEntry.content_value; // Fallback to raw content
+              }
+              
+              // Filter data based on settings if provided
+              let filteredDeals = deals;
+              let filteredAwards = awards;
+              let filteredLawyers = lawyers;
+              
+              if (settings.includeDeals === false) {
+                filteredDeals = [];
+              }
+              if (settings.includeAwards === false) {
+                filteredAwards = [];
+              }
+              if (settings.includeLawyers === false) {
+                filteredLawyers = [];
+              }
+              
+              // Populate template with selected data (works on HTML content too)
+              content = templateService.populateTemplate(templateHtml, {
+                deals: filteredDeals,
+                awards: filteredAwards,
+                lawyers: filteredLawyers
+              });
+              
+              template = {
+                id: structuredTemplate.id,
+                name: structuredTemplate.name,
+                description: structuredTemplate.description,
+                type: 'structured'
+              };
+              
+              logger.info('Structured template populated', { 
+                contentLength: content.length,
+                dealsUsed: filteredDeals.length,
+                awardsUsed: filteredAwards.length,
+                lawyersUsed: filteredLawyers.length
+              });
+            } catch (structuredTemplateError) {
+              logger.error('Error loading structured template', { 
+                error: structuredTemplateError.message,
+                templateId: templateIdNum
+              });
+              throw new Error(`Template not found: ${templateIdNum}`);
+            }
+          } else {
+            throw simpleTemplateError;
+          }
         }
-        if (settings.includeAwards === false) {
-          filteredAwards = [];
-        }
-        if (settings.includeLawyers === false) {
-          filteredLawyers = [];
-        }
-        
-        // Populate template with selected data
-        content = templateService.populateTemplate(template.content, {
-          deals: filteredDeals,
-          awards: filteredAwards,
-          lawyers: filteredLawyers
-        });
-        
-        logger.info('Template populated', { 
-          contentLength: content.length,
-          dealsUsed: filteredDeals.length,
-          awardsUsed: filteredAwards.length,
-          lawyersUsed: filteredLawyers.length
-        });
       } else {
         // Fallback to old format if no template
         logger.info('No template provided, using fallback format');
@@ -312,6 +399,97 @@ class CapStatementService {
       };
     } catch (error) {
       logger.error('Error fetching statement by ID', { error: error.message, id });
+      throw error;
+    }
+  }
+
+  async createVersion(capStatementId, content, versionName = null, userId = null) {
+    try {
+      // Get existing versions to determine next version number
+      const existingVersions = await capStatementRepository.getVersionsByCapStatementId(capStatementId);
+      const nextVersionNumber = existingVersions.length > 0 
+        ? Math.max(...existingVersions.map(v => v.version_number)) + 1
+        : 1;
+
+      // Get the statement to preserve settings and selected IDs from the latest version
+      const statement = await capStatementRepository.findById(capStatementId);
+      if (!statement) {
+        const error = new Error('Capability statement not found');
+        error.statusCode = 404;
+        throw error;
+      }
+
+      // Get latest version to preserve settings and selected IDs
+      const latestVersion = existingVersions.length > 0 ? existingVersions[0] : null;
+      
+      // MySQL JSON columns are returned as objects by mysql2, not strings
+      // So we need to check if they're already parsed or need parsing
+      const settings = latestVersion?.settings 
+        ? (typeof latestVersion.settings === 'string' ? JSON.parse(latestVersion.settings) : latestVersion.settings)
+        : {};
+      const selectedDealIds = latestVersion?.selected_deal_ids
+        ? (typeof latestVersion.selected_deal_ids === 'string' ? JSON.parse(latestVersion.selected_deal_ids) : latestVersion.selected_deal_ids)
+        : [];
+      const selectedAwardIds = latestVersion?.selected_award_ids
+        ? (typeof latestVersion.selected_award_ids === 'string' ? JSON.parse(latestVersion.selected_award_ids) : latestVersion.selected_award_ids)
+        : [];
+      const selectedLawyerIds = latestVersion?.selected_lawyer_ids
+        ? (typeof latestVersion.selected_lawyer_ids === 'string' ? JSON.parse(latestVersion.selected_lawyer_ids) : latestVersion.selected_lawyer_ids)
+        : [];
+
+      // Create new version
+      const versionId = await capStatementRepository.createVersion({
+        cap_statement_id: capStatementId,
+        version_number: nextVersionNumber,
+        version_name: versionName || null,
+        content: content || '',
+        settings: settings,
+        selected_deal_ids: selectedDealIds,
+        selected_award_ids: selectedAwardIds,
+        selected_lawyer_ids: selectedLawyerIds
+      });
+
+      logger.info('Created new version', { capStatementId, versionNumber: nextVersionNumber, versionId });
+
+      return await capStatementRepository.getVersionById(versionId);
+    } catch (error) {
+      logger.error('Error creating version', { error: error.message, capStatementId });
+      throw error;
+    }
+  }
+
+  async updateVersion(versionId, content, versionName = undefined) {
+    try {
+      // Get the version to verify it exists
+      const version = await capStatementRepository.getVersionById(versionId);
+      if (!version) {
+        const error = new Error('Version not found');
+        error.statusCode = 404;
+        throw error;
+      }
+
+      // Update the version content and/or name
+      const updateData = {};
+      if (content !== undefined) {
+        updateData.content = content;
+      }
+      if (versionName !== undefined) {
+        updateData.version_name = versionName;
+      }
+
+      const updated = await capStatementRepository.updateVersion(versionId, updateData);
+
+      if (!updated) {
+        const error = new Error('Failed to update version');
+        error.statusCode = 500;
+        throw error;
+      }
+
+      logger.info('Updated version', { versionId });
+
+      return await capStatementRepository.getVersionById(versionId);
+    } catch (error) {
+      logger.error('Error updating version', { error: error.message, versionId });
       throw error;
     }
   }

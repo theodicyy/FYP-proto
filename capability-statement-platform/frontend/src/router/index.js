@@ -10,6 +10,8 @@ import Login from '../views/Login.vue'
 import AdminLawyers from '../views/admin/LawyersManagement.vue'
 import AdminDeals from '../views/admin/DealsManagement.vue'
 import AdminAwards from '../views/admin/AwardsManagement.vue'
+import AdminTemplates from '../views/admin/TemplatesManagement.vue'
+import TemplatePreview from '../views/TemplatePreview.vue'
 
 const routes = [
   {
@@ -65,6 +67,18 @@ const routes = [
     name: 'AdminAwards',
     component: AdminAwards,
     meta: { requiresAuth: true, requiresAdmin: true }
+  },
+  {
+    path: '/admin/templates',
+    name: 'AdminTemplates',
+    component: AdminTemplates,
+    meta: { requiresAuth: true, requiresAdmin: true }
+  },
+  {
+    path: '/template-preview',
+    name: 'TemplatePreview',
+    component: TemplatePreview,
+    meta: { requiresAuth: true }
   }
 ]
 

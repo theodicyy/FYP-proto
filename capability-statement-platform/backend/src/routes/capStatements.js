@@ -36,4 +36,14 @@ router.delete('/:id', authenticate, requireAssociateOrAdmin, canEditCapStatement
   await capStatementController.deleteStatement(req, res);
 }));
 
+// Create new version: Both Admin and Associate can create versions of their statements
+router.post('/:id/versions', authenticate, requireAssociateOrAdmin, canEditCapStatement, asyncHandler(async (req, res) => {
+  await capStatementController.createVersion(req, res);
+}));
+
+// Update existing version: Both Admin and Associate can update versions of their statements
+router.put('/:id/versions/:versionId', authenticate, requireAssociateOrAdmin, canEditCapStatement, asyncHandler(async (req, res) => {
+  await capStatementController.updateVersion(req, res);
+}));
+
 export default router;

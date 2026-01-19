@@ -119,11 +119,12 @@ class CapStatementRepository {
     try {
       const [result] = await pool.execute(
         `INSERT INTO cap_statement_versions 
-         (cap_statement_id, version_number, content, settings, selected_deal_ids, selected_award_ids, selected_lawyer_ids)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+         (cap_statement_id, version_number, version_name, content, settings, selected_deal_ids, selected_award_ids, selected_lawyer_ids)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           version.cap_statement_id,
           version.version_number,
+          version.version_name || null,
           version.content,
           JSON.stringify(version.settings || {}),
           JSON.stringify(version.selected_deal_ids || []),
@@ -160,6 +161,65 @@ class CapStatementRepository {
       return rows[0] || null;
     } catch (error) {
       logger.error('Error fetching latest version', { error: error.message, capStatementId });
+      throw error;
+    }
+  }
+
+  async getVersionById(versionId) {
+    try {
+      const [rows] = await pool.execute(
+        'SELECT * FROM cap_statement_versions WHERE id = ?',
+        [versionId]
+      );
+      return rows[0] || null;
+    } catch (error) {
+      logger.error('Error fetching version by ID', { error: error.message, versionId });
+      throw error;
+    }
+  }
+
+  async updateVersion(versionId, version) {
+    try {
+      const updates = [];
+      const params = [];
+
+      if (version.content !== undefined) {
+        updates.push('content = ?');
+        params.push(version.content);
+      }
+      if (version.version_name !== undefined) {
+        updates.push('version_name = ?');
+        params.push(version.version_name || null);
+      }
+      if (version.settings !== undefined) {
+        updates.push('settings = ?');
+        params.push(JSON.stringify(version.settings || {}));
+      }
+      if (version.selected_deal_ids !== undefined) {
+        updates.push('selected_deal_ids = ?');
+        params.push(JSON.stringify(version.selected_deal_ids || []));
+      }
+      if (version.selected_award_ids !== undefined) {
+        updates.push('selected_award_ids = ?');
+        params.push(JSON.stringify(version.selected_award_ids || []));
+      }
+      if (version.selected_lawyer_ids !== undefined) {
+        updates.push('selected_lawyer_ids = ?');
+        params.push(JSON.stringify(version.selected_lawyer_ids || []));
+      }
+
+      if (updates.length === 0) {
+        return false;
+      }
+
+      params.push(versionId);
+      const [result] = await pool.execute(
+        `UPDATE cap_statement_versions SET ${updates.join(', ')} WHERE id = ?`,
+        params
+      );
+      return result.affectedRows > 0;
+    } catch (error) {
+      logger.error('Error updating cap statement version', { error: error.message, versionId });
       throw error;
     }
   }

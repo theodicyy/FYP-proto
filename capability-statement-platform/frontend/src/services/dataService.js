@@ -107,13 +107,101 @@ export const dataService = {
     return await api.delete(`/awards/${id}`)
   },
 
-  // Templates
+  // Templates (legacy - simple text templates)
   async getTemplates() {
     return await api.get('/templates')
   },
 
   async getTemplateById(id) {
     return await api.get(`/templates/${id}`)
+  },
+
+  async createTemplate(data) {
+    return await api.post('/templates', data)
+  },
+
+  async updateTemplate(id, data) {
+    return await api.put(`/templates/${id}`, data)
+  },
+
+  async deleteTemplate(id) {
+    return await api.delete(`/templates/${id}`)
+  },
+
+  // Template Definitions (structured templates)
+  async getTemplateDefinitions(includeInactive = false) {
+    const params = new URLSearchParams()
+    if (includeInactive) params.append('includeInactive', 'true')
+    
+    const queryString = params.toString()
+    const url = `/template-definitions${queryString ? `?${queryString}` : ''}`
+    return await api.get(url)
+  },
+
+  async getTemplateDefinitionById(id) {
+    return await api.get(`/template-definitions/${id}`)
+  },
+
+  async getTemplateDefinitionByName(name) {
+    return await api.get(`/template-definitions/name/${encodeURIComponent(name)}`)
+  },
+
+  async getTemplateDefinitionWithContent(id) {
+    return await api.get(`/template-definitions/${id}/with-content`)
+  },
+
+  async getTemplateContent(id, filters = {}) {
+    const params = new URLSearchParams()
+    if (filters.page_number) params.append('page_number', filters.page_number)
+    if (filters.section_id) params.append('section_id', filters.section_id)
+    if (filters.is_enabled !== undefined) params.append('is_enabled', filters.is_enabled)
+    
+    const queryString = params.toString()
+    const url = `/template-definitions/${id}/content${queryString ? `?${queryString}` : ''}`
+    return await api.get(url)
+  },
+
+  async createTemplateDefinition(data) {
+    return await api.post('/template-definitions', data)
+  },
+
+  async updateTemplateDefinition(id, data) {
+    return await api.put(`/template-definitions/${id}`, data)
+  },
+
+  async deleteTemplateDefinition(id) {
+    return await api.delete(`/template-definitions/${id}`)
+  },
+
+  async updateTemplateContent(templateId, pageNumber, sectionId, elementId, contentValue) {
+    return await api.put(`/template-definitions/${templateId}/content/${pageNumber}/${sectionId}/${elementId}`, {
+      content_value: contentValue
+    })
+  },
+
+  async updateTemplateContentBatch(templateId, updates) {
+    return await api.put(`/template-definitions/${templateId}/content`, {
+      updates: updates
+    })
+  },
+
+  async upsertTemplateContent(templateId, content) {
+    return await api.put(`/template-definitions/${templateId}/content/upsert`, content)
+  },
+
+  async setTemplateContentEnabled(templateId, pageNumber, sectionId, elementId, enabled) {
+    return await api.put(`/template-definitions/${templateId}/content/${pageNumber}/${sectionId}/${elementId}/enabled`, {
+      enabled: enabled
+    })
+  },
+
+  // Image Upload
+  async uploadTemplateImage(templateId, formData) {
+    return await api.post(`/template-definitions/${templateId}/upload-image`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    })
   },
 
   // Capability Statements
@@ -144,6 +232,18 @@ export const dataService = {
 
   async getStatementById(id) {
     return await api.get(`/cap-statements/${id}`)
+  },
+
+  async createVersion(capStatementId, content, versionName = null) {
+    return await api.post(`/cap-statements/${capStatementId}/versions`, { content, versionName })
+  },
+
+  async updateVersion(capStatementId, versionId, content, versionName = undefined) {
+    return await api.put(`/cap-statements/${capStatementId}/versions/${versionId}`, { content, versionName })
+  },
+
+  async renameVersion(capStatementId, versionId, versionName) {
+    return await api.put(`/cap-statements/${capStatementId}/versions/${versionId}`, { versionName })
   }
 }
 

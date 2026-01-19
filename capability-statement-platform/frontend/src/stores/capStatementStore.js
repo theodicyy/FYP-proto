@@ -25,8 +25,20 @@ export const useCapStatementStore = defineStore('capStatement', () => {
     loading.value = true
     error.value = null
     try {
-      const response = await dataService.getTemplates()
-      templates.value = response.data || []
+      // Fetch both simple templates and structured template definitions
+      const [simpleResponse, structuredResponse] = await Promise.all([
+        dataService.getTemplates().catch(() => ({ data: { data: [] } })),
+        dataService.getTemplateDefinitions().catch(() => ({ data: [] }))
+      ])
+      
+      const simpleTemplates = simpleResponse.data?.data || simpleResponse.data || []
+      const structuredTemplates = structuredResponse.data || []
+      
+      // Combine both types for selection
+      templates.value = [
+        ...simpleTemplates,
+        ...structuredTemplates
+      ]
     } catch (err) {
       error.value = err.message
       console.error('Error fetching templates:', err)

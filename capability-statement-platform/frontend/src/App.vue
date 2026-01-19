@@ -49,6 +49,13 @@
                     >
                       Awards Management
                     </router-link>
+                    <router-link
+                      to="/admin/templates"
+                      @click="showAdminMenu = false"
+                      class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    >
+                      Templates Management
+                    </router-link>
                   </div>
                 </div>
               </div>

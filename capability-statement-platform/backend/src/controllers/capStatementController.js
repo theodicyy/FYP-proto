@@ -100,6 +100,46 @@ class CapStatementController {
       data: statement
     });
   }
+
+  async createVersion(req, res) {
+    const { id } = req.params;
+    const { content, versionName } = req.body;
+
+    if (!content && content !== '') {
+      return res.status(400).json({
+        success: false,
+        error: { message: 'Content is required' }
+      });
+    }
+
+    const userId = req.user ? req.user.id : null;
+    const version = await capStatementService.createVersion(parseInt(id, 10), content, versionName || null, userId);
+
+    res.status(201).json({
+      success: true,
+      data: version
+    });
+  }
+
+  async updateVersion(req, res) {
+    const { id, versionId } = req.params;
+    const { content, versionName } = req.body;
+
+    // At least one of content or versionName must be provided
+    if (content === undefined && versionName === undefined) {
+      return res.status(400).json({
+        success: false,
+        error: { message: 'Either content or versionName must be provided' }
+      });
+    }
+
+    const version = await capStatementService.updateVersion(parseInt(versionId, 10), content, versionName);
+
+    res.json({
+      success: true,
+      data: version
+    });
+  }
 }
 
 export default new CapStatementController();

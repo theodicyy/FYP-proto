@@ -1,11 +1,16 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { logger } from './src/utils/logger.js';
 import { errorHandler, notFoundHandler } from './src/middlewares/errorHandler.js';
 import routes from './src/routes/index.js';
 
 dotenv.config();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 
@@ -45,6 +50,9 @@ app.use((req, res, next) => {
   });
   next();
 });
+
+// Serve static files (for uploaded images)
+app.use('/uploads', express.static(path.join(__dirname, 'public', 'uploads')));
 
 // Routes
 app.use('/api/v1', routes);
