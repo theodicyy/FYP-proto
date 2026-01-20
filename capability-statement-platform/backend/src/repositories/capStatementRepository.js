@@ -115,6 +115,20 @@ class CapStatementRepository {
     }
   }
 
+  async deleteVersionsByCapStatementId(capStatementId) {
+    try {
+      const [result] = await pool.execute(
+        'DELETE FROM cap_statement_versions WHERE cap_statement_id = ?',
+        [capStatementId]
+      );
+      logger.info('Deleted versions for cap statement', { capStatementId, count: result.affectedRows });
+      return result.affectedRows;
+    } catch (error) {
+      logger.error('Error deleting versions for cap statement', { error: error.message, capStatementId });
+      throw error;
+    }
+  }
+
   async createVersion(version) {
     try {
       const [result] = await pool.execute(

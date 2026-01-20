@@ -52,9 +52,15 @@
               </td>
               <td>{{ formatDate(statement.created_at) }}</td>
               <td>{{ statement.latest_version?.version_number || '-' }}</td>
-              <td>
+              <td class="space-x-2">
                 <button @click="viewStatement(statement.id)" class="text-primary-600 hover:text-primary-800 text-sm">
                   View
+                </button>
+                <button 
+                  @click="confirmDelete(statement)" 
+                  class="text-red-600 hover:text-red-800 text-sm"
+                >
+                  Delete
                 </button>
               </td>
             </tr>
@@ -75,6 +81,16 @@
         <div class="flex justify-between items-center p-4 border-b border-gray-200 flex-shrink-0">
           <h3 class="text-xl font-semibold">{{ viewingStatement.title }}</h3>
           <div class="flex items-center gap-3">
+            <button 
+              @click="downloadVersion"
+              class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm font-medium transition-colors flex items-center gap-2"
+              title="Download as PDF"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+              </svg>
+              Download PDF
+            </button>
             <button 
               @click="showSaveModal = true" 
               :disabled="capStore.loading || saving"
@@ -98,6 +114,7 @@
         <div class="flex-1 overflow-hidden">
           <InlineDocumentEditor 
             ref="statementEditorRef"
+            :statement-id="viewingStatement?.id"
           />
         </div>
       </div>
@@ -110,12 +127,70 @@
         </div>
         
         <div v-if="viewingStatement.versions && viewingStatement.versions.length > 0" class="mb-4">
-          <label class="block text-sm font-medium mb-1">Version</label>
-          <select v-model="selectedVersion" @change="loadVersion" class="input">
-            <option v-for="version in viewingStatement.versions" :key="version.id" :value="version.id">
-              Version {{ version.version_number }} ({{ formatDate(version.created_at) }})
-            </option>
-          </select>
+          <div class="flex items-center gap-4">
+            <!-- Version Selector -->
+            <div class="flex-shrink-0">
+              <label class="block text-sm font-medium mb-1">Version</label>
+              <select v-model="selectedVersion" @change="loadVersion" class="input">
+                <option v-for="version in viewingStatement.versions" :key="version.id" :value="version.id">
+                  {{ getVersionDisplayName(version) }}
+                </option>
+              </select>
+            </div>
+            
+            <!-- Version Name Editor (Google Docs style) -->
+            <div class="flex-1" v-if="selectedVersionData">
+              <label class="block text-sm font-medium mb-1">Version Name</label>
+              <div class="relative">
+                <!-- Display mode - click to edit -->
+                <div 
+                  v-if="!editingVersionName"
+                  @click="startVersionNameEdit"
+                  class="px-3 py-2 border border-transparent rounded-md cursor-pointer hover:border-gray-300 hover:bg-gray-50 transition-all group flex items-center gap-2"
+                  title="Click to rename version"
+                >
+                  <span class="text-gray-700">
+                    {{ selectedVersionData.version_name || 'Untitled Version' }}
+                  </span>
+                  <svg class="w-4 h-4 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
+                  </svg>
+                </div>
+                
+                <!-- Edit mode - inline input -->
+                <div v-else class="flex items-center gap-2">
+                  <input
+                    ref="versionNameInput"
+                    v-model="newVersionName"
+                    @keyup.enter="saveVersionName"
+                    @keyup.escape="cancelVersionNameEdit"
+                    @blur="saveVersionName"
+                    class="px-3 py-2 border border-teal-500 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500 flex-1"
+                    placeholder="Enter version name..."
+                  />
+                  <button 
+                    @click="saveVersionName"
+                    class="p-2 text-teal-600 hover:text-teal-800"
+                    title="Save"
+                  >
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                    </svg>
+                  </button>
+                  <button 
+                    @click="cancelVersionNameEdit"
+                    class="p-2 text-gray-500 hover:text-gray-700"
+                    title="Cancel"
+                  >
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              <p class="text-xs text-gray-500 mt-1">Created {{ formatDate(selectedVersionData.created_at) }}</p>
+            </div>
+          </div>
         </div>
 
         <div class="mb-4 flex gap-2">
@@ -186,6 +261,35 @@
         </div>
       </div>
     </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div v-if="showDeleteModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div class="bg-white rounded-lg p-6 max-w-md w-full">
+        <h3 class="text-xl font-semibold mb-4 text-red-600">Delete Capability Statement</h3>
+        <p class="text-gray-700 mb-2">
+          Are you sure you want to delete "<strong>{{ statementToDelete?.title }}</strong>"?
+        </p>
+        <p class="text-gray-600 text-sm mb-4">
+          This will permanently delete the capability statement and <strong>ALL {{ statementToDelete?.versions?.length || 0 }} version(s)</strong> associated with it. This action cannot be undone.
+        </p>
+        <div class="flex justify-end gap-3">
+          <button 
+            @click="showDeleteModal = false"
+            class="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 text-sm font-medium transition-colors"
+            :disabled="deleting"
+          >
+            Cancel
+          </button>
+          <button 
+            @click="deleteStatement"
+            :disabled="deleting"
+            class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:bg-gray-400 text-sm font-medium transition-colors"
+          >
+            {{ deleting ? 'Deleting...' : 'Delete Permanently' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -194,7 +298,7 @@ import { ref, computed, onMounted, nextTick, watch } from 'vue'
 import { useCapStatementStore } from '../stores/capStatementStore'
 import InlineDocumentEditor from '../components/InlineDocumentEditor.vue'
 import dataService from '../services/dataService'
-import html2pdf from 'html2pdf.js'
+// Using browser print for PDF export instead of html2pdf
 
 const capStore = useCapStatementStore()
 const viewingStatement = ref(null)
@@ -202,9 +306,15 @@ const selectedVersion = ref(null)
 const statementEditorRef = ref(null)
 const saving = ref(false)
 const showSaveModal = ref(false)
+const showDeleteModal = ref(false)
+const statementToDelete = ref(null)
+const deleting = ref(false)
 const editingStatusId = ref(null)
 const editingStatusValue = ref(null)
 const statusSelectRef = ref(null)
+const editingVersionName = ref(false)
+const newVersionName = ref('')
+const versionNameInput = ref(null)
 
 const currentVersionContent = computed(() => {
   if (!viewingStatement.value) return ''
@@ -295,6 +405,102 @@ function cancelEdits() {
   // Reload statement to revert
   if (viewingStatement.value) {
     viewStatement(viewingStatement.value.id)
+  }
+}
+
+function confirmDelete(statement) {
+  statementToDelete.value = statement
+  showDeleteModal.value = true
+}
+
+// Version name helpers
+function getVersionDisplayName(version) {
+  if (version.version_name) {
+    return `${version.version_name} (v${version.version_number})`
+  }
+  return `Version ${version.version_number} (${formatDate(version.created_at)})`
+}
+
+function startVersionNameEdit() {
+  if (!selectedVersionData.value) return
+  newVersionName.value = selectedVersionData.value.version_name || ''
+  editingVersionName.value = true
+  // Focus the input after Vue updates the DOM
+  nextTick(() => {
+    if (versionNameInput.value) {
+      versionNameInput.value.focus()
+      versionNameInput.value.select()
+    }
+  })
+}
+
+function cancelVersionNameEdit() {
+  editingVersionName.value = false
+  newVersionName.value = ''
+}
+
+async function saveVersionName() {
+  if (!selectedVersionData.value || !viewingStatement.value) {
+    cancelVersionNameEdit()
+    return
+  }
+  
+  const trimmedName = newVersionName.value.trim()
+  
+  // Don't save if name hasn't changed
+  if (trimmedName === (selectedVersionData.value.version_name || '')) {
+    cancelVersionNameEdit()
+    return
+  }
+  
+  try {
+    // Call API to rename version
+    await dataService.renameVersion(
+      viewingStatement.value.id,
+      selectedVersionData.value.id,
+      trimmedName || null // Send null if empty to clear the name
+    )
+    
+    // Update local data
+    const versionIndex = viewingStatement.value.versions.findIndex(v => v.id === selectedVersionData.value.id)
+    if (versionIndex !== -1) {
+      viewingStatement.value.versions[versionIndex].version_name = trimmedName || null
+    }
+    
+    editingVersionName.value = false
+    newVersionName.value = ''
+    
+  } catch (error) {
+    console.error('Error renaming version:', error)
+    alert('Error renaming version: ' + (error.response?.data?.error?.message || error.message))
+  }
+}
+
+async function deleteStatement() {
+  if (!statementToDelete.value) return
+  
+  deleting.value = true
+  try {
+    await dataService.deleteStatement(statementToDelete.value.id)
+    
+    // Close modal
+    showDeleteModal.value = false
+    statementToDelete.value = null
+    
+    // Close view modal if viewing the deleted statement
+    if (viewingStatement.value?.id === statementToDelete.value?.id) {
+      viewingStatement.value = null
+    }
+    
+    // Refresh the list
+    await capStore.fetchStatements()
+    
+    alert('Capability statement and all its versions have been deleted successfully.')
+  } catch (error) {
+    console.error('Error deleting statement:', error)
+    alert('Error deleting statement: ' + (error.response?.data?.error?.message || error.message))
+  } finally {
+    deleting.value = false
   }
 }
 
@@ -483,254 +689,141 @@ async function saveStatus(statementId) {
 }
 
 async function downloadVersion() {
-  // Version Selection - Ensure version is selected
-  if (!selectedVersion.value || !viewingStatement.value || !selectedVersionData.value) {
-    alert('Please select a version to download')
+  // Get content for PDF
+  let content = ''
+  let version = selectedVersionData.value
+  
+  // Try to get content from multiple sources
+  if (capStore.isEditing && statementEditorRef.value) {
+    const editorContent = getEditorContent()
+    if (editorContent) content = editorContent
+  }
+  if (!content && version?.content) content = version.content
+  if (!content && viewingStatement.value?.display_content) content = viewingStatement.value.display_content
+  if (!content && viewingStatement.value?.edited_content) content = viewingStatement.value.edited_content
+  if (!content && viewingStatement.value?.generated_content) content = viewingStatement.value.generated_content
+  
+  if (!content) {
+    alert('No content available to download.')
     return
   }
   
-  // PDF Generation - Generate PDF from selected version content
-  try {
-    const version = selectedVersionData.value
-    const content = version.content || ''
-    
-    if (!content) {
-      alert('Selected version has no content to download')
-      return
-    }
-    
-    // Step 1: Extract HTML from database (version.content is TipTap HTML)
-    // Step 2: Create container matching the preview's exact styles (what user sees in view mode)
-    const tempDiv = document.createElement('div')
-    tempDiv.style.position = 'absolute'
-    tempDiv.style.left = '-9999px'
-    tempDiv.style.width = '816px' // A4 width at 96 DPI
-    tempDiv.style.padding = '96px' // 1 inch margins
-    tempDiv.style.background = 'white'
-    tempDiv.style.minHeight = '1123px' // A4 height
-    tempDiv.className = 'pdf-export-container'
-    
-    // Set HTML content (TipTap HTML from database)
-    if (isHTMLContent(content)) {
-      tempDiv.innerHTML = content
-    } else {
-      tempDiv.textContent = content
-      tempDiv.style.whiteSpace = 'pre-wrap'
-    }
-    
-    // Add CSS stylesheet matching the preview view styles exactly (prose class + inline styles)
-    const style = document.createElement('style')
-    style.textContent = `
-      .pdf-export-container {
-        font-family: 'Times New Roman', serif;
-        font-size: 14px;
-        line-height: 1.6;
-        color: #374151;
-      }
-      .pdf-export-container p {
-        margin-top: 1.25em;
-        margin-bottom: 1.25em;
-      }
-      .pdf-export-container p:first-child {
-        margin-top: 0;
-      }
-      .pdf-export-container p:last-child {
-        margin-bottom: 0;
-      }
-      .pdf-export-container h1 {
-        font-size: 2.25em;
-        margin-top: 0;
-        margin-bottom: 0.8888889em;
-        font-weight: 800;
-        line-height: 1.1111111;
-      }
-      .pdf-export-container h2 {
-        font-size: 1.5em;
-        margin-top: 2em;
-        margin-bottom: 1em;
-        font-weight: 700;
-        line-height: 1.3333333;
-      }
-      .pdf-export-container h3 {
-        font-size: 1.25em;
-        margin-top: 1.6em;
-        margin-bottom: 0.6em;
-        font-weight: 600;
-        line-height: 1.6;
-      }
-      .pdf-export-container h4 {
-        font-size: 1.125em;
-        margin-top: 1.5555556em;
-        margin-bottom: 0.4444444em;
-        font-weight: 600;
-        line-height: 1.5555556;
-      }
-      .pdf-export-container ul,
-      .pdf-export-container ol {
-        margin-top: 1.25em;
-        margin-bottom: 1.25em;
-        padding-left: 1.625em;
-      }
-      .pdf-export-container li {
-        margin-top: 0.5em;
-        margin-bottom: 0.5em;
-      }
-      .pdf-export-container img,
-      .pdf-export-container .editor-image {
-        max-width: 100%;
-        height: auto;
-        margin-top: 2em;
-        margin-bottom: 2em;
-      }
-      .pdf-export-container table,
-      .pdf-export-container .editor-table {
-        width: 100%;
-        table-layout: auto;
-        text-align: left;
-        margin-top: 2em;
-        margin-bottom: 2em;
-        font-size: 0.875em;
-        line-height: 1.7142857;
-        border-collapse: collapse;
-      }
-      .pdf-export-container table thead,
-      .pdf-export-container .editor-table thead {
-        border-bottom-width: 1px;
-        border-bottom-color: rgb(229 231 235);
-      }
-      .pdf-export-container table thead th,
-      .pdf-export-container .editor-table thead th {
-        color: rgb(17 24 39);
-        font-weight: 600;
-        vertical-align: bottom;
-        padding-right: 0.5714286em;
-        padding-bottom: 0.5714286em;
-        padding-left: 0.5714286em;
-      }
-      .pdf-export-container table tbody tr,
-      .pdf-export-container .editor-table tbody tr {
-        border-bottom-width: 1px;
-        border-bottom-color: rgb(229 231 235);
-      }
-      .pdf-export-container table tbody td,
-      .pdf-export-container .editor-table tbody td,
-      .pdf-export-container table td,
-      .pdf-export-container .editor-table td {
-        vertical-align: baseline;
-        padding-top: 0.5714286em;
-        padding-right: 0.5714286em;
-        padding-bottom: 0.5714286em;
-        padding-left: 0.5714286em;
-      }
-      .pdf-export-container blockquote {
-        font-weight: 500;
-        font-style: italic;
-        color: rgb(17 24 39);
-        border-left-width: 0.25rem;
-        border-left-color: rgb(229 231 235);
-        quotes: "\\201C" "\\201D" "\\2018" "\\2019";
-        margin-top: 1.6em;
-        margin-bottom: 1.6em;
-        padding-left: 1em;
-      }
-      .pdf-export-container code {
-        color: rgb(17 24 39);
-        font-weight: 600;
-        font-size: 0.875em;
-      }
-      .pdf-export-container pre {
-        color: rgb(229 231 235);
-        background-color: rgb(17 24 39);
-        overflow-x: auto;
-        font-weight: 400;
-        font-size: 0.875em;
-        line-height: 1.7142857;
-        margin-top: 1.7142857em;
-        margin-bottom: 1.7142857em;
-        border-radius: 0.375rem;
-        padding-top: 0.8571429em;
-        padding-right: 1.1428571em;
-        padding-bottom: 0.8571429em;
-        padding-left: 1.1428571em;
-      }
-      .pdf-export-container pre code {
-        background-color: transparent;
-        border-width: 0;
-        border-radius: 0;
-        padding: 0;
-        font-weight: inherit;
-        color: inherit;
-        font-size: inherit;
-        font-family: inherit;
-        line-height: inherit;
-      }
-      .pdf-export-container pre code::before,
-      .pdf-export-container pre code::after {
-        content: none;
-      }
-      .pdf-export-container strong,
-      .pdf-export-container b {
-        font-weight: 600;
-      }
-      .pdf-export-container em,
-      .pdf-export-container i {
-        font-style: italic;
-      }
-      .pdf-export-container u {
-        text-decoration: underline;
-      }
-    `
-    
-    // Create wrapper to include style
-    const wrapper = document.createElement('div')
-    wrapper.appendChild(style)
-    wrapper.appendChild(tempDiv)
-    document.body.appendChild(wrapper)
-    
-    // Wait for fonts and images to load
-    await document.fonts.ready
-    await new Promise(resolve => {
-      const images = tempDiv.querySelectorAll('img')
-      if (images.length === 0) {
-        resolve()
-        return
-      }
-      let loaded = 0
-      images.forEach(img => {
-        if (img.complete) {
-          loaded++
-          if (loaded === images.length) resolve()
-        } else {
-          img.onload = img.onerror = () => {
-            loaded++
-            if (loaded === images.length) resolve()
+  console.log('Content for PDF:', content.substring(0, 200))
+  
+  // Get version number for filename
+  const versionNumber = version?.version_number || viewingStatement.value?.latest_version?.version_number || 'draft'
+  const filename = `${viewingStatement.value?.title || 'capability-statement'}_v${versionNumber}.pdf`
+  
+  // Open new window for print-to-PDF
+  const printWindow = window.open('', '_blank', 'width=816,height=1056')
+  
+  if (!printWindow) {
+    alert('Please allow pop-ups to download PDF')
+    return
+  }
+  
+  // Write HTML to print window
+  printWindow.document.write(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>${filename}</title>
+      <style>
+        @page {
+          size: A4;
+          margin: 20mm;
+        }
+        @media print {
+          body {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
           }
         }
-      })
-    })
-    
-    // Step 3: Generate PDF from styled HTML
-    const opt = {
-      margin: 0,
-      filename: `${viewingStatement.value.title || 'capability-statement'}_v${version.version_number}.pdf`,
-      image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { 
-        scale: 2, 
-        useCORS: true,
-        letterRendering: true,
-        logging: false
-      },
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-    }
-    
-    await html2pdf().set(opt).from(tempDiv).save()
-    
-    // Cleanup
-    document.body.removeChild(wrapper)
-  } catch (error) {
-    console.error('Error generating PDF:', error)
-    alert('Error generating PDF: ' + error.message)
+        body {
+          font-family: 'Times New Roman', Georgia, serif;
+          font-size: 12pt;
+          line-height: 1.6;
+          color: #000;
+          margin: 0;
+          padding: 20px;
+          background: white;
+        }
+        p {
+          margin: 0.8em 0;
+        }
+        h1 { font-size: 24pt; margin: 0.5em 0; }
+        h2 { font-size: 18pt; margin: 0.5em 0; }
+        h3 { font-size: 14pt; margin: 0.5em 0; }
+        h4 { font-size: 12pt; margin: 0.5em 0; }
+        img, .editor-image {
+          max-width: 100%;
+          height: auto;
+          margin: 1em 0;
+        }
+        table, .editor-table {
+          width: 100%;
+          border-collapse: collapse;
+          margin: 1em 0;
+        }
+        table td, table th,
+        .editor-table td, .editor-table th {
+          border: 1px solid #000;
+          padding: 8px;
+          text-align: left;
+        }
+        table th, .editor-table th {
+          background-color: #f5f5f5;
+          font-weight: bold;
+        }
+        strong, b { font-weight: bold; }
+        em, i { font-style: italic; }
+        u { text-decoration: underline; }
+        ul, ol { margin: 0.5em 0; padding-left: 1.5em; }
+        li { margin: 0.3em 0; }
+        blockquote {
+          border-left: 3px solid #ccc;
+          margin: 1em 0;
+          padding-left: 1em;
+          font-style: italic;
+        }
+      </style>
+    </head>
+    <body>
+      ${content}
+    </body>
+    </html>
+  `)
+  
+  printWindow.document.close()
+  
+  // Wait for content to load
+  await new Promise(resolve => {
+    printWindow.onload = resolve
+    setTimeout(resolve, 1000) // Fallback timeout
+  })
+  
+  // Wait for images
+  const images = printWindow.document.querySelectorAll('img')
+  if (images.length > 0) {
+    await Promise.race([
+      Promise.all(Array.from(images).map(img => 
+        new Promise(resolve => {
+          if (img.complete) resolve()
+          else {
+            img.onload = resolve
+            img.onerror = resolve
+          }
+        })
+      )),
+      new Promise(resolve => setTimeout(resolve, 3000))
+    ])
   }
+  
+  // Small delay then print
+  setTimeout(() => {
+    printWindow.print()
+    // Don't close immediately - let user save as PDF
+  }, 500)
 }
 
 function isHTMLContent(content) {

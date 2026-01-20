@@ -204,6 +204,14 @@ export const dataService = {
     })
   },
 
+  async uploadStatementImage(statementId, formData) {
+    return await api.post(`/cap-statements/${statementId}/upload-image`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    })
+  },
+
   // Capability Statements
   async generateStatement(data) {
     return await api.post('/cap-statements/generate', data)

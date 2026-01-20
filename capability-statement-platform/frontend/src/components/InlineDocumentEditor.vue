@@ -42,20 +42,89 @@
       </div>
       
       <!-- Insert Table -->
-      <div class="toolbar-group">
+      <div class="toolbar-group table-selector-container" @mouseleave="hideTableGrid">
         <button
-          @click="insertTable"
+          @mouseenter="showTableGrid = true"
           class="toolbar-btn"
           title="Insert Table"
         >
           Table
         </button>
+        <!-- Table Grid Selector (Google Docs style) -->
+        <div v-if="showTableGrid" class="table-grid-selector" @mouseleave="hideTableGrid">
+          <div class="table-grid">
+            <div
+              v-for="row in 10"
+              :key="`row-${row}`"
+              class="table-grid-row"
+            >
+              <div
+                v-for="col in 10"
+                :key="`cell-${row}-${col}`"
+                class="table-grid-cell"
+                :class="{ 'selected': selectedTableSize.rows >= row && selectedTableSize.cols >= col }"
+                @mouseenter="selectedTableSize = { rows: row, cols: col }"
+                @click="insertTableWithSize(row, col)"
+              ></div>
+            </div>
+          </div>
+          <div class="table-grid-label">
+            {{ selectedTableSize.rows }} × {{ selectedTableSize.cols }}
+          </div>
+        </div>
+      </div>
+      
+      <!-- Table Editing Controls (shown when table is selected) -->
+      <div v-if="isTableActive" class="toolbar-group">
+        <button
+          @click="addTableRow"
+          class="toolbar-btn"
+          title="Add Row After"
+        >
+          +Row
+        </button>
+        <button
+          @click="deleteTableRow"
+          class="toolbar-btn"
+          title="Delete Row"
+        >
+          -Row
+        </button>
+        <button
+          @click="addTableColumn"
+          class="toolbar-btn"
+          title="Add Column After"
+        >
+          +Col
+        </button>
+        <button
+          @click="deleteTableColumn"
+          class="toolbar-btn"
+          title="Delete Column"
+        >
+          -Col
+        </button>
+        <button
+          @click="deleteTable"
+          class="toolbar-btn"
+          title="Delete Table"
+        >
+          ✕
+        </button>
       </div>
       
       <!-- Insert Image -->
       <div class="toolbar-group">
+        <input
+          type="file"
+          ref="imageInput"
+          @change="handleImageUpload"
+          accept="image/*"
+          class="hidden-input"
+          id="image-upload-inline"
+        />
         <button
-          @click="showImagePicker = true"
+          @click="triggerImageUpload"
           class="toolbar-btn"
           title="Insert Image"
         >
@@ -90,34 +159,40 @@
       </div>
     </div>
 
-    <!-- Image Picker Modal (for selecting existing images) -->
-    <div v-if="showImagePicker" class="image-picker-modal" @click.self="showImagePicker = false">
-      <div class="image-picker-content">
-        <h3>Select Image</h3>
-        <div class="image-grid">
-          <!-- List of available images -->
-          <div
-            v-for="image in availableImages"
-            :key="image.id"
-            class="image-item"
-            @click="insertSelectedImage(image)"
-          >
-            <img :src="image.src" :alt="image.name" />
-            <span>{{ image.name }}</span>
-          </div>
-        </div>
-        <button @click="showImagePicker = false" class="btn-close">Close</button>
-      </div>
-    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount, computed, watch } from 'vue'
+import { ref, onMounted, onBeforeUnmount, computed, watch, nextTick } from 'vue'
 import { Editor, EditorContent } from '@tiptap/vue-3'
 import { dataService } from '../services/dataService.js'
 import StarterKit from '@tiptap/starter-kit'
 import Image from '@tiptap/extension-image'
+
+// Extend Image extension to support width and height attributes for resizing
+const ResizableImage = Image.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      width: {
+        default: null,
+        parseHTML: element => element.getAttribute('width') || element.style.width?.replace('px', '') || null,
+        renderHTML: attributes => {
+          if (!attributes.width) return {}
+          return { width: attributes.width, style: `width: ${attributes.width}px` }
+        },
+      },
+      height: {
+        default: null,
+        parseHTML: element => element.getAttribute('height') || element.style.height?.replace('px', '') || null,
+        renderHTML: attributes => {
+          if (!attributes.height) return {}
+          return { height: attributes.height, style: `height: ${attributes.height}px` }
+        },
+      },
+    }
+  },
+})
 import { Table } from '@tiptap/extension-table'
 import TableRow from '@tiptap/extension-table-row'
 import TableCell from '@tiptap/extension-table-cell'
@@ -137,6 +212,10 @@ const props = defineProps({
   templateId: {
     type: Number,
     default: null
+  },
+  statementId: {
+    type: Number,
+    default: null
   }
 })
 
@@ -144,11 +223,9 @@ const emit = defineEmits(['content-changed'])
 
 // Pages management
 const pages = ref([])
-const showImagePicker = ref(false)
-const availableImages = ref([
-  { id: 1, name: 'Logo', src: '/images/template/Wong_Partnership_Logo_HD_Transparent.png' },
-  { id: 2, name: 'W Logo', src: '/images/template/WongP_W_Logo_HD_Transparent.png' }
-])
+const imageInput = ref(null)
+const showTableGrid = ref(false)
+const selectedTableSize = ref({ rows: 3, cols: 3 })
 
 // Initialize first page
 function createPage(pageId = null) {
@@ -158,9 +235,9 @@ function createPage(pageId = null) {
       StarterKit.configure({
         // Disable heading if needed, or keep for structure
       }),
-      Image.configure({
+      ResizableImage.configure({
         inline: false,
-        allowBase64: true,
+        allowBase64: false, // CRITICAL: Only allow persistent URLs, no base64
         HTMLAttributes: {
           class: 'editor-image',
         },
@@ -169,6 +246,7 @@ function createPage(pageId = null) {
         resizable: true,
         HTMLAttributes: {
           class: 'editor-table',
+          style: 'border-collapse: collapse; border: 1px solid #000000;',
         },
       }),
       TableRow,
@@ -185,6 +263,31 @@ function createPage(pageId = null) {
     editorProps: {
       attributes: {
         class: 'page-editor',
+      },
+      handlePaste: (view, event, slice) => {
+        const items = Array.from(event.clipboardData?.items || [])
+        const imageItem = items.find(item => item.type.indexOf('image') !== -1)
+        
+        if (imageItem) {
+          event.preventDefault()
+          const file = imageItem.getAsFile()
+          if (file) {
+            handleImageFile(file)
+          }
+          return true
+        }
+        return false
+      },
+      handleDrop: (view, event, slice, moved) => {
+        if (!moved && event.dataTransfer && event.dataTransfer.files && event.dataTransfer.files[0]) {
+          const file = event.dataTransfer.files[0]
+          if (file.type.indexOf('image') !== -1) {
+            event.preventDefault()
+            handleImageFile(file)
+            return true
+          }
+        }
+        return false
       },
     },
   })
@@ -204,11 +307,60 @@ function addPage() {
   }, 100)
 }
 
-function insertTable() {
-  if (pages.value.length > 0) {
-    const currentPage = pages.value[pages.value.length - 1]
-    currentPage.editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()
-  }
+function insertTableWithSize(rows, cols) {
+  if (pages.value.length === 0) return
+  
+  const currentPage = pages.value[pages.value.length - 1]
+  if (!currentPage || !currentPage.editor) return
+  
+  const editor = currentPage.editor
+  
+  // Insert table at current cursor position (inline insertion)
+  // TipTap's insertTable inserts at the current selection/cursor position
+  editor.chain().focus().insertTable({ 
+    rows: rows, 
+    cols: cols, 
+    withHeaderRow: false 
+  }).run()
+  
+  // Hide grid selector
+  showTableGrid.value = false
+  
+  // CRITICAL: Move cursor into first cell (row 1, col 1)
+  // TipTap's insertTable should place cursor automatically, but we ensure it
+  setTimeout(() => {
+    try {
+      const { state } = editor
+      const { $anchor } = state.selection
+      
+      // Find table node in the document
+      let tablePos = null
+      state.doc.descendants((node, pos) => {
+        if (node.type.name === 'table') {
+          tablePos = pos
+          return false // Stop searching
+        }
+      })
+      
+      if (tablePos !== null) {
+        // Navigate to first cell: table > tbody > first row > first cell > paragraph
+        // TipTap structure: table > tableRow > tableCell > paragraph
+        const firstCellPos = tablePos + 3 // Approximate - TipTap will handle positioning
+        editor.commands.setTextSelection(firstCellPos)
+        editor.commands.focus()
+      }
+    } catch (error) {
+      // If explicit positioning fails, TipTap should have already placed cursor correctly
+      console.warn('Could not explicitly position cursor in first cell:', error)
+    }
+  }, 10)
+}
+
+function hideTableGrid() {
+  // Small delay to allow click to register
+  setTimeout(() => {
+    showTableGrid.value = false
+  }, 200)
 }
 
 function getCurrentEditor() {
@@ -267,12 +419,226 @@ function getCurrentColor() {
   return editor.getAttributes('textStyle').color || '#000000'
 }
 
-function insertSelectedImage(image) {
-  if (pages.value.length > 0) {
-    const currentPage = pages.value[pages.value.length - 1]
-    currentPage.editor.chain().focus().setImage({ src: image.src }).run()
+const isTableActive = computed(() => {
+  const editor = getCurrentEditor()
+  if (!editor) return false
+  return editor.isActive('table')
+})
+
+function addTableRow() {
+  const editor = getCurrentEditor()
+  if (!editor) return
+  editor.chain().focus().addRowAfter().run()
+}
+
+function deleteTableRow() {
+  const editor = getCurrentEditor()
+  if (!editor) return
+  editor.chain().focus().deleteRow().run()
+}
+
+function addTableColumn() {
+  const editor = getCurrentEditor()
+  if (!editor) return
+  editor.chain().focus().addColumnAfter().run()
+}
+
+function deleteTableColumn() {
+  const editor = getCurrentEditor()
+  if (!editor) return
+  editor.chain().focus().deleteColumn().run()
+}
+
+function deleteTable() {
+  const editor = getCurrentEditor()
+  if (!editor) return
+  editor.chain().focus().deleteTable().run()
+}
+
+function triggerImageUpload() {
+  console.log('Image button clicked, triggering file input...')
+  if (imageInput.value) {
+    imageInput.value.click()
+  } else {
+    console.error('Image input ref not found!')
   }
-  showImagePicker.value = false
+}
+
+async function handleImageUpload(event) {
+  console.log('handleImageUpload called')
+  console.log('Event target:', event.target)
+  console.log('Files:', event.target.files)
+  
+  const file = event.target.files?.[0]
+  if (!file) {
+    console.log('No file selected')
+    return
+  }
+  
+  console.log('File selected:', file.name, file.type, file.size)
+  
+  // Validate MIME type (Step 1: Validation)
+  const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp', 'image/gif']
+  if (!allowedTypes.includes(file.type)) {
+    alert(`Invalid file type: ${file.type}\n\nPlease select a valid image file (PNG, JPEG, WebP, or GIF)`)
+    if (imageInput.value) {
+      imageInput.value.value = ''
+    }
+    return
+  }
+  
+  // Validate file size (10MB limit)
+  const maxSize = 10 * 1024 * 1024 // 10MB
+  if (file.size > maxSize) {
+    alert(`File size (${(file.size / 1024 / 1024).toFixed(2)} MB) exceeds the 10MB limit`)
+    if (imageInput.value) {
+      imageInput.value.value = ''
+    }
+    return
+  }
+  
+  // Upload and insert image
+  try {
+    await handleImageFile(file)
+  } catch (error) {
+    // Error already handled in handleImageFile
+    console.error('Image upload failed:', error)
+  } finally {
+    // Always reset input
+    if (imageInput.value) {
+      imageInput.value.value = ''
+    }
+  }
+}
+
+async function handleImageFile(file) {
+  if (pages.value.length === 0) {
+    alert('Please wait for the editor to initialize')
+    return
+  }
+  
+  const currentPage = pages.value[pages.value.length - 1]
+  if (!currentPage || !currentPage.editor) {
+    alert('Editor not ready')
+    return
+  }
+  
+  // CRITICAL: Must have templateId OR statementId for persistent storage
+  if (!props.templateId && !props.statementId) {
+    alert('Cannot upload image: Please save first to enable image uploads.')
+    return
+  }
+  
+  // RULE 1: Upload FIRST, wait for completion, THEN insert
+  let imageUrl = null
+  
+  try {
+    // Step 1: Upload image to backend - WAIT for completion
+    const formData = new FormData()
+    formData.append('image', file)
+    
+    console.log('Uploading image to server...')
+    
+    // Use appropriate upload endpoint based on context
+    let response
+    if (props.templateId) {
+      response = await dataService.uploadTemplateImage(props.templateId, formData)
+    } else if (props.statementId) {
+      response = await dataService.uploadStatementImage(props.statementId, formData)
+    }
+    console.log('Upload response:', response)
+    
+    // Step 2: Extract image URL from response
+    // Backend returns: { success: true, data: { url: '/uploads/templates/...', imageUrl: '...' } }
+    // Axios interceptor (api.js line 28) returns response.data directly
+    // So after interceptor, response = { success: true, data: { url: '...' } }
+    
+    // Try all possible response structures
+    if (response?.data?.url) {
+      imageUrl = response.data.url
+    } else if (response?.data?.imageUrl) {
+      imageUrl = response.data.imageUrl
+    } else if (response?.url) {
+      imageUrl = response.url
+    } else if (response?.imageUrl) {
+      imageUrl = response.imageUrl
+    } else if (typeof response === 'string' && response.length > 0) {
+      imageUrl = response
+    }
+    
+    // CRITICAL: Validate URL before insertion
+    if (!imageUrl || typeof imageUrl !== 'string' || imageUrl.trim() === '') {
+      console.error('Invalid image URL extracted. Full response:', response)
+      throw new Error('No valid image URL returned from server. Response: ' + JSON.stringify(response))
+    }
+    
+    // Ensure URL is properly formatted
+    imageUrl = imageUrl.trim()
+    
+    // CRITICAL: Convert relative URLs to absolute URLs pointing to backend server
+    // Backend runs on http://localhost:3000 (or from env), frontend on http://localhost:5173
+    // Relative URLs like /uploads/templates/... will be requested from frontend server (wrong!)
+    // Must make them absolute: http://localhost:3000/uploads/templates/...
+    if (imageUrl.startsWith('/')) {
+      // Get backend URL from environment or default to localhost:3000
+      const backendUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'
+      // Remove trailing slash from backendUrl if present
+      const baseUrl = backendUrl.replace(/\/$/, '')
+      // Prepend backend URL to relative path
+      imageUrl = baseUrl + imageUrl
+    } else if (!imageUrl.startsWith('http://') && !imageUrl.startsWith('https://')) {
+      // If it's not absolute and not relative, make it relative first
+      imageUrl = '/' + imageUrl
+      // Then convert to absolute
+      const backendUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'
+      const baseUrl = backendUrl.replace(/\/$/, '')
+      imageUrl = baseUrl + imageUrl
+    }
+    
+    // Validate URL format
+    if (imageUrl.includes('blob:') || imageUrl.startsWith('data:') || imageUrl === 'undefined' || imageUrl === 'null') {
+      throw new Error('Invalid image URL format: ' + imageUrl)
+    }
+    
+    console.log('Valid image URL extracted (absolute):', imageUrl)
+    
+    // Step 3: ONLY AFTER upload succeeds and URL is validated, insert image
+    // RULE 2: Insert inline at cursor position
+    const editor = currentPage.editor
+    
+    // Ensure editor is focused and ready
+    editor.chain().focus()
+    
+    // Insert image at current cursor position (replaces selection if text is selected)
+    const insertResult = editor.chain().focus().setImage({ src: imageUrl }).run()
+    
+    if (!insertResult) {
+      throw new Error('Failed to insert image into editor')
+    }
+    
+    console.log('Image inserted successfully with URL:', imageUrl)
+    
+    // Attach resize handles to the new image after a short delay
+    setTimeout(() => {
+      attachResizeHandles(editor)
+      console.log('Resize handles attached to new image')
+    }, 200)
+    
+  } catch (uploadError) {
+    console.error('Image upload/insertion failed:', uploadError)
+    console.error('Error details:', {
+      message: uploadError.message,
+      response: uploadError.response?.data,
+      stack: uploadError.stack
+    })
+    
+    const errorMessage = uploadError.response?.data?.error?.message || uploadError.message || 'Image upload failed'
+    alert(`Error uploading image: ${errorMessage}\n\nPlease ensure:\n- File is a valid image (PNG, JPEG, WebP)\n- File size is under 10MB\n- Template is saved`)
+    
+    // RULE 1: DO NOT insert image on failure
+    // Error is thrown, so no image will be inserted
+    throw uploadError
+  }
 }
 
 function serializeDocument() {
@@ -386,7 +752,12 @@ async function loadExistingDocument() {
 
 watch(() => props.templateId, () => {
   if (props.templateId) {
-    loadExistingDocument()
+    loadExistingDocument().then(() => {
+      // Re-initialize image resize after document loads
+      setTimeout(() => {
+        initializeImageResize()
+      }, 500)
+    })
   }
 }, { immediate: true })
 
@@ -396,13 +767,310 @@ onMounted(() => {
   if (!props.templateId) {
     pages.value = [createPage()]
   }
+  
+  // Initialize image resize functionality after mount
+  nextTick(() => {
+    initializeImageResize()
+  })
 })
 
 onBeforeUnmount(() => {
+  // Cleanup image resize handlers
+  cleanupImageResize()
+  
   pages.value.forEach(page => {
     if (page.editor) {
       page.editor.destroy()
     }
+  })
+})
+
+// Image resize functionality (Google Docs style)
+let resizeHandlers = []
+
+function initializeImageResize() {
+  // Watch for editor updates to attach resize handles to images
+  pages.value.forEach(page => {
+    if (page.editor) {
+      // Attach handles on selection change
+      page.editor.on('selectionUpdate', () => {
+        nextTick(() => {
+          attachResizeHandles(page.editor)
+        })
+      })
+      
+      // Attach handles when content updates (new images added)
+      page.editor.on('update', () => {
+        nextTick(() => {
+          attachResizeHandles(page.editor)
+        })
+      })
+      
+      // Also attach on transaction (any editor change)
+      page.editor.on('transaction', () => {
+        nextTick(() => {
+          attachResizeHandles(page.editor)
+        })
+      })
+    }
+  })
+  
+  // Initial attachment with delay to ensure DOM is ready
+  setTimeout(() => {
+    pages.value.forEach(page => {
+      if (page.editor) {
+        attachResizeHandles(page.editor)
+      }
+    })
+  }, 100)
+}
+
+function cleanupImageResize() {
+  resizeHandlers.forEach(cleanup => cleanup())
+  resizeHandlers = []
+}
+
+function attachResizeHandles(editor) {
+  const editorElement = editor.view.dom
+  // Try multiple selectors to find images
+  const images = editorElement.querySelectorAll('img')
+  
+  console.log('attachResizeHandles called, found images:', images.length)
+  
+  images.forEach(img => {
+    // Skip if already has resize listener
+    if (img.dataset.resizeEnabled === 'true') {
+      return
+    }
+    
+    // Mark as having resize enabled
+    img.dataset.resizeEnabled = 'true'
+    
+    console.log('Adding resize capability to image:', img.src?.substring(0, 80))
+    
+    // Make image clickable
+    img.style.cursor = 'pointer'
+    
+    // Add click handler to show resize UI
+    const onClick = (e) => {
+      e.preventDefault()
+      e.stopPropagation()
+      showImageResizeUI(img, editor)
+    }
+    
+    img.addEventListener('click', onClick)
+    
+    resizeHandlers.push(() => {
+      img.removeEventListener('click', onClick)
+      img.dataset.resizeEnabled = 'false'
+    })
+  })
+}
+
+// Global resize UI state
+let activeResizeOverlay = null
+
+function showImageResizeUI(img, editor) {
+  console.log('showImageResizeUI called for image')
+  
+  // Remove any existing overlay
+  hideImageResizeUI()
+  
+  // Get image position
+  const rect = img.getBoundingClientRect()
+  const scrollTop = window.scrollY || document.documentElement.scrollTop
+  const scrollLeft = window.scrollX || document.documentElement.scrollLeft
+  
+  // Create overlay container
+  const overlay = document.createElement('div')
+  overlay.id = 'image-resize-overlay'
+  overlay.style.cssText = `
+    position: absolute;
+    top: ${rect.top + scrollTop}px;
+    left: ${rect.left + scrollLeft}px;
+    width: ${rect.width}px;
+    height: ${rect.height}px;
+    border: 2px solid #1a73e8;
+    box-sizing: border-box;
+    pointer-events: none;
+    z-index: 9999;
+  `
+  
+  // Add resize handles
+  const handles = ['nw', 'ne', 'sw', 'se']
+  const handlePositions = {
+    'nw': { top: '-6px', left: '-6px', cursor: 'nwse-resize' },
+    'ne': { top: '-6px', right: '-6px', cursor: 'nesw-resize' },
+    'sw': { bottom: '-6px', left: '-6px', cursor: 'nesw-resize' },
+    'se': { bottom: '-6px', right: '-6px', cursor: 'nwse-resize' }
+  }
+  
+  handles.forEach(handle => {
+    const handleEl = document.createElement('div')
+    handleEl.className = `resize-handle-${handle}`
+    handleEl.style.cssText = `
+      position: absolute;
+      width: 12px;
+      height: 12px;
+      background: #1a73e8;
+      border: 2px solid white;
+      border-radius: 2px;
+      cursor: ${handlePositions[handle].cursor};
+      pointer-events: auto;
+      z-index: 10000;
+    `
+    
+    // Position the handle
+    Object.entries(handlePositions[handle]).forEach(([prop, value]) => {
+      if (prop !== 'cursor') {
+        handleEl.style[prop] = value
+      }
+    })
+    
+    // Add mousedown for resize
+    handleEl.addEventListener('mousedown', (e) => {
+      e.preventDefault()
+      e.stopPropagation()
+      startImageResize(e, img, handle, editor, overlay)
+    })
+    
+    overlay.appendChild(handleEl)
+  })
+  
+  document.body.appendChild(overlay)
+  activeResizeOverlay = overlay
+  
+  // Add click outside listener to close
+  const closeOnClickOutside = (e) => {
+    if (!overlay.contains(e.target) && e.target !== img) {
+      hideImageResizeUI()
+      document.removeEventListener('click', closeOnClickOutside)
+    }
+  }
+  
+  setTimeout(() => {
+    document.addEventListener('click', closeOnClickOutside)
+  }, 100)
+  
+  console.log('Resize overlay shown')
+}
+
+function hideImageResizeUI() {
+  if (activeResizeOverlay) {
+    activeResizeOverlay.remove()
+    activeResizeOverlay = null
+  }
+}
+
+function startImageResize(e, img, handle, editor, overlay) {
+  console.log('startImageResize:', handle)
+  
+  const startX = e.clientX
+  const startY = e.clientY
+  const startWidth = img.offsetWidth
+  const startHeight = img.offsetHeight
+  const aspectRatio = startWidth / startHeight
+  
+  const onMouseMove = (moveEvent) => {
+    const deltaX = moveEvent.clientX - startX
+    const deltaY = moveEvent.clientY - startY
+    
+    let newWidth = startWidth
+    
+    // Calculate new width based on handle
+    if (handle === 'se' || handle === 'ne') {
+      newWidth = Math.max(50, startWidth + deltaX)
+    } else {
+      newWidth = Math.max(50, startWidth - deltaX)
+    }
+    
+    const newHeight = newWidth / aspectRatio
+    
+    // Update image size
+    img.style.width = `${newWidth}px`
+    img.style.height = `${newHeight}px`
+    
+    // Update overlay size and position
+    const rect = img.getBoundingClientRect()
+    const scrollTop = window.scrollY || document.documentElement.scrollTop
+    const scrollLeft = window.scrollX || document.documentElement.scrollLeft
+    overlay.style.width = `${rect.width}px`
+    overlay.style.height = `${rect.height}px`
+    overlay.style.top = `${rect.top + scrollTop}px`
+    overlay.style.left = `${rect.left + scrollLeft}px`
+  }
+  
+  const onMouseUp = () => {
+    document.removeEventListener('mousemove', onMouseMove)
+    document.removeEventListener('mouseup', onMouseUp)
+    
+    // Save the new size to TipTap
+    const newWidth = img.offsetWidth
+    const newHeight = img.offsetHeight
+    updateImageNodeSize(img, newWidth, newHeight, editor)
+    
+    console.log('Resize complete:', newWidth, 'x', newHeight)
+  }
+  
+  document.addEventListener('mousemove', onMouseMove)
+  document.addEventListener('mouseup', onMouseUp)
+}
+
+function updateImageNodeSize(img, width, height, editor) {
+  // Find the image node and update its attributes
+  const { state } = editor
+  let imagePos = null
+  
+  // Ensure width and height are numbers
+  const numWidth = Math.round(typeof width === 'string' ? parseFloat(width) : width)
+  const numHeight = Math.round(typeof height === 'string' ? parseFloat(height) : height)
+  
+  console.log('updateImageNodeSize called with:', { width: numWidth, height: numHeight })
+  
+  state.doc.descendants((node, pos) => {
+    if (node.type.name === 'image' && node.attrs.src === img.src) {
+      imagePos = pos
+      console.log('Found image at position:', pos, 'Current attrs:', node.attrs)
+      return false
+    }
+  })
+  
+  if (imagePos !== null) {
+    // Use transaction to update attributes
+    const { tr } = state
+    tr.setNodeMarkup(imagePos, undefined, {
+      ...state.doc.nodeAt(imagePos).attrs,
+      width: numWidth,
+      height: numHeight,
+    })
+    editor.view.dispatch(tr)
+    
+    console.log('Image node size updated in TipTap:', { width: numWidth, height: numHeight })
+    
+    // Verify the update
+    setTimeout(() => {
+      const newState = editor.state
+      newState.doc.descendants((node, pos) => {
+        if (node.type.name === 'image' && node.attrs.src === img.src) {
+          console.log('Verified image attrs after update:', node.attrs)
+          return false
+        }
+      })
+    }, 100)
+  } else {
+    console.warn('Could not find image node to update')
+  }
+}
+
+
+// Watch for page changes to reinitialize resize handles
+watch(() => pages.value.length, () => {
+  nextTick(() => {
+    pages.value.forEach(page => {
+      if (page.editor) {
+        attachResizeHandles(page.editor)
+      }
+    })
   })
 })
 
@@ -552,75 +1220,264 @@ defineExpose({
   margin: 1rem 0;
   cursor: pointer;
   border-radius: 4px;
+  /* Google Docs-like behavior */
+  box-sizing: border-box;
+  /* Ensure images load correctly */
+  object-fit: contain;
 }
 
-:deep(.editor-table) {
-  border-collapse: collapse;
-  margin: 1rem 0;
-  width: 100%;
+/* Ensure images are not broken - add error handling */
+:deep(.editor-image[src=""]) {
+  display: none;
 }
 
+:deep(.editor-image:not([src])) {
+  display: none;
+}
+
+:deep(.editor-image:focus),
+:deep(.editor-image.selected) {
+  outline: 2px solid #008080;
+  outline-offset: 2px;
+}
+
+/* Image resize wrapper and handles (Google Docs style) - MUST use :deep() for dynamic elements */
+:deep(.image-resize-wrapper) {
+  position: relative !important;
+  display: inline-block !important;
+  max-width: 100% !important;
+  margin: 1rem 0 !important;
+}
+
+:deep(.image-resize-wrapper.selected .editor-image) {
+  outline: 2px solid #1a73e8 !important;
+  outline-offset: 2px !important;
+}
+
+:deep(.resize-handle) {
+  position: absolute !important;
+  width: 10px !important;
+  height: 10px !important;
+  background: #1a73e8 !important;
+  border: 2px solid white !important;
+  border-radius: 2px !important;
+  z-index: 1000 !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3) !important;
+}
+
+:deep(.resize-handle-nw) {
+  top: -5px !important;
+  left: -5px !important;
+  cursor: nwse-resize !important;
+}
+
+:deep(.resize-handle-ne) {
+  top: -5px !important;
+  right: -5px !important;
+  cursor: nesw-resize !important;
+}
+
+:deep(.resize-handle-sw) {
+  bottom: -5px !important;
+  left: -5px !important;
+  cursor: nesw-resize !important;
+}
+
+:deep(.resize-handle-se) {
+  bottom: -5px !important;
+  right: -5px !important;
+  cursor: nwse-resize !important;
+}
+
+:deep(.resize-handle:hover) {
+  background: #1557b0 !important;
+  transform: scale(1.2) !important;
+}
+
+/* Ensure image wrapper doesn't break layout */
+:deep(.image-resize-wrapper .editor-image) {
+  margin: 0 !important;
+  display: block !important;
+}
+
+/* Google Docs-like Table Styling - BLACK BORDERS (MANDATORY) */
+/* Target ALL table elements in the editor - maximum specificity */
+:deep(.page-editor) table,
+:deep(.page-editor) table.editor-table,
+:deep(.page-editor table),
+:deep(.page-editor .editor-table),
+:deep(.editor-table),
+:deep(table.editor-table) {
+  border-collapse: collapse !important;
+  margin: 1rem 0 !important;
+  width: 100% !important;
+  border: 1px solid #000000 !important; /* BLACK borders - NO EXCUSES */
+  background-color: #fff !important;
+  table-layout: auto !important;
+  border-spacing: 0 !important;
+}
+
+/* ALL cells must have BLACK visible borders - maximum specificity */
+:deep(.page-editor) table td,
+:deep(.page-editor) table th,
+:deep(.page-editor) table.editor-table td,
+:deep(.page-editor) table.editor-table th,
+:deep(.page-editor table td),
+:deep(.page-editor table th),
+:deep(.page-editor .editor-table td),
+:deep(.page-editor .editor-table th),
 :deep(.editor-table td),
-:deep(.editor-table th) {
-  border: 1px solid #ddd;
-  padding: 0.5rem;
+:deep(.editor-table th),
+:deep(table.editor-table td),
+:deep(table.editor-table th) {
+  border: 1px solid #000000 !important; /* BLACK borders - 1px solid black */
+  padding: 8px 12px !important;
+  min-width: 50px !important;
+  vertical-align: top !important;
+  font-family: inherit !important;
+  font-size: inherit !important;
+  line-height: inherit !important;
+  background-color: #fff !important;
 }
 
-/* Image Picker Modal */
-.image-picker-modal {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
+:deep(.page-editor) table th,
+:deep(.page-editor) table.editor-table th,
+:deep(.page-editor table th),
+:deep(.page-editor .editor-table th),
+:deep(.editor-table th),
+:deep(table.editor-table th) {
+  background-color: #f8f9fa !important;
+  font-weight: 600 !important;
+  text-align: left !important;
 }
 
-.image-picker-content {
+:deep(.page-editor) table tbody tr:hover,
+:deep(.page-editor) table.editor-table tbody tr:hover,
+:deep(.page-editor table tbody tr:hover),
+:deep(.page-editor .editor-table tbody tr:hover),
+:deep(.editor-table tbody tr:hover),
+:deep(table.editor-table tbody tr:hover) {
+  background-color: #f8f9fa !important;
+}
+
+:deep(.page-editor) table .selectedCell,
+:deep(.page-editor) table.editor-table .selectedCell,
+:deep(.page-editor table .selectedCell),
+:deep(.page-editor .editor-table .selectedCell),
+:deep(.editor-table .selectedCell),
+:deep(table.editor-table .selectedCell) {
+  background-color: #e8f0fe !important;
+}
+
+/* Ensure ALL borders are BLACK - maximum specificity for edge cases */
+:deep(.page-editor) table td:first-child,
+:deep(.page-editor) table th:first-child,
+:deep(.page-editor) table.editor-table td:first-child,
+:deep(.page-editor) table.editor-table th:first-child,
+:deep(.page-editor table td:first-child),
+:deep(.page-editor table th:first-child),
+:deep(.page-editor .editor-table td:first-child),
+:deep(.page-editor .editor-table th:first-child),
+:deep(.editor-table td:first-child),
+:deep(.editor-table th:first-child),
+:deep(table.editor-table td:first-child),
+:deep(table.editor-table th:first-child) {
+  border-left: 1px solid #000000 !important;
+}
+
+:deep(.page-editor) table td:last-child,
+:deep(.page-editor) table th:last-child,
+:deep(.page-editor) table.editor-table td:last-child,
+:deep(.page-editor) table.editor-table th:last-child,
+:deep(.page-editor table td:last-child),
+:deep(.page-editor table th:last-child),
+:deep(.page-editor .editor-table td:last-child),
+:deep(.page-editor .editor-table th:last-child),
+:deep(.editor-table td:last-child),
+:deep(.editor-table th:last-child),
+:deep(table.editor-table td:last-child),
+:deep(table.editor-table th:last-child) {
+  border-right: 1px solid #000000 !important;
+}
+
+:deep(.page-editor) table tr:first-child td,
+:deep(.page-editor) table thead th,
+:deep(.page-editor) table.editor-table tr:first-child td,
+:deep(.page-editor) table.editor-table thead th,
+:deep(.page-editor table tr:first-child td),
+:deep(.page-editor table thead th),
+:deep(.page-editor .editor-table tr:first-child td),
+:deep(.page-editor .editor-table thead th),
+:deep(.editor-table tr:first-child td),
+:deep(.editor-table thead th),
+:deep(table.editor-table tr:first-child td),
+:deep(table.editor-table thead th) {
+  border-top: 1px solid #000000 !important;
+}
+
+:deep(.page-editor) table tr:last-child td,
+:deep(.page-editor) table.editor-table tr:last-child td,
+:deep(.page-editor table tr:last-child td),
+:deep(.page-editor .editor-table tr:last-child td),
+:deep(.editor-table tr:last-child td),
+:deep(table.editor-table tr:last-child td) {
+  border-bottom: 1px solid #000000 !important;
+}
+
+/* Hidden file input */
+.hidden-input {
+  display: none;
+}
+
+/* Table Grid Selector (Google Docs style) */
+.table-selector-container {
+  position: relative;
+}
+
+.table-grid-selector {
+  position: absolute;
+  top: 100%;
+  left: 0;
   background: white;
-  border-radius: 8px;
-  padding: 2rem;
-  max-width: 600px;
-  width: 90%;
-  max-height: 80vh;
-  overflow-y: auto;
-}
-
-.image-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-  gap: 1rem;
-  margin: 1rem 0;
-}
-
-.image-item {
-  cursor: pointer;
-  border: 2px solid transparent;
+  border: 1px solid #e5e7eb;
   border-radius: 4px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
   padding: 0.5rem;
-  text-align: center;
-  transition: border-color 0.2s;
+  z-index: 1000;
+  margin-top: 0.25rem;
 }
 
-.image-item:hover {
-  border-color: #008080;
-}
-
-.image-item img {
-  width: 100%;
-  height: auto;
-  display: block;
+.table-grid {
+  display: grid;
+  grid-template-columns: repeat(10, 1fr);
+  gap: 2px;
   margin-bottom: 0.5rem;
 }
 
-.btn-close {
-  padding: 0.5rem 1rem;
-  background: #008080;
-  color: white;
-  border: none;
-  border-radius: 4px;
+.table-grid-row {
+  display: contents;
+}
+
+.table-grid-cell {
+  width: 16px;
+  height: 16px;
+  border: 1px solid #d1d5db;
+  background: white;
   cursor: pointer;
-  margin-top: 1rem;
+  transition: background-color 0.1s;
+}
+
+.table-grid-cell:hover,
+.table-grid-cell.selected {
+  background: #008080;
+  border-color: #008080;
+}
+
+.table-grid-label {
+  text-align: center;
+  font-size: 0.75rem;
+  color: #6b7280;
+  padding: 0.25rem;
+  border-top: 1px solid #e5e7eb;
 }
 </style>

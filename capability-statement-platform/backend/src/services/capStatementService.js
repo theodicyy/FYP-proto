@@ -335,13 +335,18 @@ class CapStatementService {
 
   async deleteStatement(id) {
     try {
+      // First, delete all versions associated with this capability statement
+      const deletedVersionsCount = await capStatementRepository.deleteVersionsByCapStatementId(id);
+      logger.info('Deleted versions for capability statement', { id, versionsDeleted: deletedVersionsCount });
+      
+      // Then delete the capability statement itself
       const deleted = await capStatementRepository.delete(id);
       if (!deleted) {
         const error = new Error('Capability statement not found');
         error.statusCode = 404;
         throw error;
       }
-      logger.info('Deleted capability statement', { id });
+      logger.info('Deleted capability statement', { id, versionsDeleted: deletedVersionsCount });
       return deleted;
     } catch (error) {
       logger.error('Error deleting statement', { error: error.message, id });

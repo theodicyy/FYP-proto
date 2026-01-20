@@ -140,6 +140,49 @@ class CapStatementController {
       data: version
     });
   }
+
+  async uploadImage(req, res) {
+    try {
+      if (!req.file) {
+        return res.status(400).json({
+          success: false,
+          error: { message: 'No image file provided' }
+        });
+      }
+
+      const statementId = parseInt(req.params.id);
+      
+      // Verify statement exists
+      const statement = await capStatementService.getStatementById(statementId);
+      if (!statement) {
+        return res.status(404).json({
+          success: false,
+          error: { message: 'Capability statement not found' }
+        });
+      }
+
+      // Return the URL to access the image
+      // Images are stored in public/uploads/statements/
+      const imageUrl = `/uploads/statements/${req.file.filename}`;
+
+      res.json({
+        success: true,
+        data: {
+          url: imageUrl,
+          imageUrl: imageUrl,
+          filename: req.file.filename,
+          originalName: req.file.originalname,
+          size: req.file.size
+        }
+      });
+    } catch (error) {
+      console.error('Error uploading statement image:', error);
+      res.status(500).json({
+        success: false,
+        error: { message: 'Failed to upload image' }
+      });
+    }
+  }
 }
 
 export default new CapStatementController();
