@@ -245,9 +245,7 @@ Generated on: &lcub;&lcub;date&rcub;&rcub;"
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import dataService from '../../services/dataService'
-import MultiPageTemplate from '../../components/MultiPageTemplate.vue'
 import StructuredTemplateRenderer from '../../components/StructuredTemplateRenderer.vue'
-import TemplateContentEditor from '../../components/TemplateContentEditor.vue'
 import InlineDocumentEditor from '../../components/InlineDocumentEditor.vue'
 
 const templates = ref([]) // Simple text templates
@@ -263,7 +261,6 @@ const previewingTemplateId = ref(null)
 const editingTemplateDefinitionId = ref(null) // For structured template content editing
 const editingTemplateName = ref('') // Current template name being edited
 const templateContentKey = ref(0) // Force refresh preview after content save
-const templateContentEditorRef = ref(null)
 const inlineEditorRef = ref(null)
 const savingContent = ref(false)
 
