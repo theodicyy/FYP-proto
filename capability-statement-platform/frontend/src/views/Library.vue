@@ -1,14 +1,50 @@
 <template>
-  <div>
-    <h1 class="text-3xl font-bold mb-6">Capability Statement Library</h1>
-    
-    <div v-if="capStore.error" class="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
-      {{ capStore.error }}
+  <div class="animate-fade-in">
+    <!-- Page Header -->
+    <div class="page-header">
+      <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+        <div>
+          <h1 class="page-title">Capability Statement Library</h1>
+          <p class="page-subtitle">Manage and view your saved capability statements</p>
+        </div>
+        <div class="page-actions">
+          <router-link to="/aggregation" class="btn btn-primary">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 4v16m8-8H4" />
+            </svg>
+            Create New
+          </router-link>
+        </div>
+      </div>
     </div>
+    
+    <!-- Error Alert -->
+    <Transition name="fade">
+      <div v-if="capStore.error" class="alert alert-error mb-6 flex items-start gap-3">
+        <svg class="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <span>{{ capStore.error }}</span>
+      </div>
+    </Transition>
 
+    <!-- Statements Table -->
     <div class="card">
-      <div v-if="capStore.loading" class="text-center py-8">Loading...</div>
-      <div v-else>
+      <div v-if="capStore.loading" class="py-12 text-center">
+        <div class="spinner mx-auto mb-4"></div>
+        <p class="text-secondary-500">Loading statements...</p>
+      </div>
+      <div v-else-if="capStore.statements.length === 0" class="empty-state">
+        <svg class="empty-state-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l9-4 9 4M4 10h16v11H4V10z" />
+        </svg>
+        <h3 class="empty-state-title">No statements yet</h3>
+        <p class="empty-state-description">Create your first capability statement to get started.</p>
+        <router-link to="/aggregation" class="btn btn-primary mt-4">
+          Create Statement
+        </router-link>
+      </div>
+      <div v-else class="overflow-x-auto">
         <table class="table">
           <thead>
             <tr>
@@ -16,21 +52,22 @@
               <th>Status</th>
               <th>Created</th>
               <th>Version</th>
-              <th>Actions</th>
+              <th class="text-right">Actions</th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="statement in capStore.statements" :key="statement.id">
-              <td>{{ statement.title }}</td>
+              <td>
+                <span class="font-medium text-secondary-900">{{ statement.title }}</span>
+              </td>
               <td>
                 <!-- Inline Status Editor -->
-                <div v-if="editingStatusId === statement.id" class="inline-status-editor">
+                <div v-if="editingStatusId === statement.id" class="inline-block">
                   <select 
                     v-model="editingStatusValue" 
                     @change="saveStatus(statement.id)"
                     @blur="cancelStatusEdit"
-                    class="status-select"
-                    :class="getStatusColorClass(editingStatusValue)"
+                    class="select text-xs py-1 px-2 min-w-0"
                     ref="statusSelectRef"
                     autofocus
                   >
@@ -39,34 +76,41 @@
                     <option value="Closed Lost">Closed Lost</option>
                   </select>
                 </div>
-                <span 
+                <button 
                   v-else
                   @click="startStatusEdit(statement.id, statement.status)"
-                  :class="[
-                    'px-2 py-1 rounded-full text-xs font-medium cursor-pointer hover:opacity-80 transition-opacity',
-                    getStatusColorClass(statement.status)
-                  ]"
+                  class="badge cursor-pointer hover:opacity-80 transition-opacity"
+                  :class="getStatusBadgeClass(statement.status)"
                 >
                   {{ statement.status || 'In Progress' }}
-                </span>
-              </td>
-              <td>{{ formatDate(statement.created_at) }}</td>
-              <td>{{ statement.latest_version?.version_number || '-' }}</td>
-              <td class="space-x-2">
-                <button @click="viewStatement(statement.id)" class="text-primary-600 hover:text-primary-800 text-sm">
-                  View
-                </button>
-                <button 
-                  @click="confirmDelete(statement)" 
-                  class="text-red-600 hover:text-red-800 text-sm"
-                >
-                  Delete
                 </button>
               </td>
-            </tr>
-            <tr v-if="capStore.statements.length === 0">
-              <td colspan="5" class="text-center py-8 text-gray-500">
-                No capability statements found. Create your first one!
+              <td class="text-secondary-500">{{ formatDate(statement.created_at) }}</td>
+              <td>
+                <span class="badge badge-secondary">v{{ statement.latest_version?.version_number || '1' }}</span>
+              </td>
+              <td>
+                <div class="flex items-center justify-end gap-2">
+                  <button 
+                    @click="viewStatement(statement.id)" 
+                    class="btn btn-ghost btn-sm text-primary-600 hover:text-primary-700"
+                  >
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>
+                    View
+                  </button>
+                  <button 
+                    @click="confirmDelete(statement)" 
+                    class="btn btn-ghost btn-sm text-red-600 hover:text-red-700"
+                  >
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                    Delete
+                  </button>
+                </div>
               </td>
             </tr>
           </tbody>
@@ -75,230 +119,257 @@
     </div>
 
     <!-- View/Edit Modal -->
-    <div v-if="viewingStatement" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <!-- Edit Mode: Full-screen editor like Templates Management -->
-      <div v-if="capStore.isEditing" class="bg-white w-full h-full flex flex-col">
-        <div class="flex justify-between items-center p-4 border-b border-gray-200 flex-shrink-0">
-          <h3 class="text-xl font-semibold">{{ viewingStatement.title }}</h3>
-          <div class="flex items-center gap-3">
-            <button 
-              @click="downloadVersion"
-              class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm font-medium transition-colors flex items-center gap-2"
-              title="Download as PDF"
-            >
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-              </svg>
-              Download PDF
-            </button>
-            <button 
-              @click="showSaveModal = true" 
-              :disabled="capStore.loading || saving"
-              class="px-4 py-2 bg-teal-600 text-white rounded-md hover:bg-teal-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-sm font-medium transition-colors flex items-center gap-2"
-              title="Save edits"
-            >
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-              </svg>
-              {{ saving ? 'Saving...' : 'Save Edits' }}
-            </button>
-            <button 
-              @click="cancelEdits" 
-              class="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 text-sm font-medium transition-colors"
-            >
-              Cancel
-            </button>
-            <button @click="cancelEdits" class="text-gray-500 hover:text-gray-700 text-2xl font-light">✕</button>
+    <Teleport to="body">
+      <Transition name="modal">
+        <div v-if="viewingStatement" class="modal-overlay" @click.self="!capStore.isEditing && (viewingStatement = null)">
+          <!-- Edit Mode: Full-screen editor -->
+          <div v-if="capStore.isEditing" class="fixed inset-0 bg-white flex flex-col z-50">
+            <div class="flex items-center justify-between px-6 py-4 border-b border-secondary-200 bg-white">
+              <div class="flex items-center gap-4">
+                <button @click="cancelEdits" class="btn btn-ghost btn-sm">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+                <h3 class="text-lg font-semibold text-secondary-900">{{ viewingStatement.title }}</h3>
+              </div>
+              <div class="flex items-center gap-3">
+                <button 
+                  @click="downloadVersion"
+                  class="btn btn-secondary btn-sm"
+                  title="Download as PDF"
+                >
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  Download PDF
+                </button>
+                <button 
+                  @click="showSaveModal = true" 
+                  :disabled="capStore.loading || saving"
+                  class="btn btn-primary btn-sm"
+                >
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M5 13l4 4L19 7" />
+                  </svg>
+                  {{ saving ? 'Saving...' : 'Save' }}
+                </button>
+                <button @click="cancelEdits" class="btn btn-ghost btn-sm">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div class="flex-1 overflow-hidden bg-secondary-100">
+              <InlineDocumentEditor 
+                ref="statementEditorRef"
+                :statement-id="viewingStatement?.id"
+              />
+            </div>
           </div>
-        </div>
-        <div class="flex-1 overflow-hidden">
-          <InlineDocumentEditor 
-            ref="statementEditorRef"
-            :statement-id="viewingStatement?.id"
-          />
-        </div>
-      </div>
-      
-      <!-- View Mode: Regular modal -->
-      <div v-else class="bg-white rounded-lg p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-        <div class="flex justify-between items-center mb-4">
-          <h3 class="text-xl font-semibold">{{ viewingStatement.title }}</h3>
-          <button @click="viewingStatement = null" class="text-gray-500 hover:text-gray-700">✕</button>
-        </div>
-        
-        <div v-if="viewingStatement.versions && viewingStatement.versions.length > 0" class="mb-4">
-          <div class="flex items-center gap-4">
-            <!-- Version Selector -->
-            <div class="flex-shrink-0">
-              <label class="block text-sm font-medium mb-1">Version</label>
-              <select v-model="selectedVersion" @change="loadVersion" class="input">
-                <option v-for="version in viewingStatement.versions" :key="version.id" :value="version.id">
-                  {{ getVersionDisplayName(version) }}
-                </option>
-              </select>
+          
+          <!-- View Mode: Modal -->
+          <div v-else class="modal modal-xl max-h-[90vh] overflow-hidden flex flex-col">
+            <div class="modal-header flex items-center justify-between">
+              <h3 class="text-lg font-semibold text-secondary-900">{{ viewingStatement.title }}</h3>
+              <button @click="viewingStatement = null" class="btn btn-ghost btn-sm">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
             </div>
             
-            <!-- Version Name Editor (Google Docs style) -->
-            <div class="flex-1" v-if="selectedVersionData">
-              <label class="block text-sm font-medium mb-1">Version Name</label>
-              <div class="relative">
-                <!-- Display mode - click to edit -->
-                <div 
-                  v-if="!editingVersionName"
-                  @click="startVersionNameEdit"
-                  class="px-3 py-2 border border-transparent rounded-md cursor-pointer hover:border-gray-300 hover:bg-gray-50 transition-all group flex items-center gap-2"
-                  title="Click to rename version"
-                >
-                  <span class="text-gray-700">
-                    {{ selectedVersionData.version_name || 'Untitled Version' }}
-                  </span>
-                  <svg class="w-4 h-4 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
-                  </svg>
-                </div>
-                
-                <!-- Edit mode - inline input -->
-                <div v-else class="flex items-center gap-2">
-                  <input
-                    ref="versionNameInput"
-                    v-model="newVersionName"
-                    @keyup.enter="saveVersionName"
-                    @keyup.escape="cancelVersionNameEdit"
-                    @blur="saveVersionName"
-                    class="px-3 py-2 border border-teal-500 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500 flex-1"
-                    placeholder="Enter version name..."
-                  />
-                  <button 
-                    @click="saveVersionName"
-                    class="p-2 text-teal-600 hover:text-teal-800"
-                    title="Save"
-                  >
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                    </svg>
-                  </button>
-                  <button 
-                    @click="cancelVersionNameEdit"
-                    class="p-2 text-gray-500 hover:text-gray-700"
-                    title="Cancel"
-                  >
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                    </svg>
-                  </button>
+            <div class="modal-body flex-1 overflow-y-auto">
+              <!-- Version Selector -->
+              <div v-if="viewingStatement.versions && viewingStatement.versions.length > 0" class="mb-6">
+                <div class="flex flex-col sm:flex-row gap-4">
+                  <div class="flex-shrink-0">
+                    <label class="label">Version</label>
+                    <select v-model="selectedVersion" @change="loadVersion" class="select">
+                      <option v-for="version in viewingStatement.versions" :key="version.id" :value="version.id">
+                        {{ getVersionDisplayName(version) }}
+                      </option>
+                    </select>
+                  </div>
+                  
+                  <!-- Version Name Editor -->
+                  <div class="flex-1" v-if="selectedVersionData">
+                    <label class="label">Version Name</label>
+                    <div v-if="!editingVersionName" 
+                      @click="startVersionNameEdit"
+                      class="p-3 rounded-lg border border-secondary-200 cursor-pointer hover:border-secondary-300 hover:bg-secondary-50 transition-all group"
+                    >
+                      <div class="flex items-center justify-between">
+                        <span class="text-secondary-700">{{ selectedVersionData.version_name || 'Untitled Version' }}</span>
+                        <svg class="w-4 h-4 text-secondary-400 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                        </svg>
+                      </div>
+                      <p class="text-xs text-secondary-400 mt-1">Created {{ formatDate(selectedVersionData.created_at) }}</p>
+                    </div>
+                    <div v-else class="flex items-center gap-2">
+                      <input
+                        ref="versionNameInput"
+                        v-model="newVersionName"
+                        @keyup.enter="saveVersionName"
+                        @keyup.escape="cancelVersionNameEdit"
+                        @blur="saveVersionName"
+                        class="input"
+                        placeholder="Enter version name..."
+                      />
+                      <button @click="saveVersionName" class="btn btn-ghost btn-sm text-primary-600">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                        </svg>
+                      </button>
+                      <button @click="cancelVersionNameEdit" class="btn btn-ghost btn-sm text-secondary-500">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
-              <p class="text-xs text-gray-500 mt-1">Created {{ formatDate(selectedVersionData.created_at) }}</p>
+
+              <!-- Actions -->
+              <div class="flex gap-3 mb-6">
+                <button @click="editStatement(viewingStatement.id)" class="btn btn-primary">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                  </svg>
+                  Edit
+                </button>
+                <button 
+                  @click="downloadVersion"
+                  :disabled="!selectedVersion || !hasSelectedVersion"
+                  class="btn btn-secondary"
+                >
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  Download
+                </button>
+              </div>
+
+              <!-- Content Preview -->
+              <div class="bg-secondary-50 rounded-xl p-6 border border-secondary-200">
+                <div 
+                  v-if="isHTMLContent(currentVersionContent)" 
+                  v-html="currentVersionContent"
+                  class="prose max-w-none"
+                ></div>
+                <div v-else class="font-mono text-sm whitespace-pre-wrap text-secondary-700">
+                  {{ currentVersionContent }}
+                </div>
+              </div>
             </div>
           </div>
         </div>
-
-        <div class="mb-4 flex gap-2">
-          <button 
-            @click="editStatement(viewingStatement.id)" 
-            class="btn btn-primary"
-          >
-            Edit
-          </button>
-          <button 
-            @click="downloadVersion"
-            :disabled="!selectedVersion || !hasSelectedVersion"
-            class="btn btn-secondary"
-            title="Download selected version as PDF"
-          >
-            Download Version
-          </button>
-        </div>
-
-        <!-- View Mode Content -->
-        <div class="bg-gray-50 p-6 rounded-lg">
-          <!-- Render as HTML if content appears to be HTML, otherwise as plain text -->
-          <div 
-            v-if="isHTMLContent(currentVersionContent)" 
-            v-html="currentVersionContent"
-            class="prose max-w-none"
-            style="font-family: 'Times New Roman', serif; line-height: 1.6;"
-          ></div>
-          <div 
-            v-else
-            class="font-mono text-sm whitespace-pre-wrap"
-          >{{ currentVersionContent }}</div>
-        </div>
-      </div>
-    </div>
+      </Transition>
+    </Teleport>
 
     <!-- Save Version Modal -->
-    <div v-if="showSaveModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div class="bg-white rounded-lg p-6 max-w-md w-full">
-        <h3 class="text-xl font-semibold mb-4">Save Changes</h3>
-        <p class="text-gray-600 mb-6">How would you like to save your changes?</p>
-        <div class="space-y-3">
-          <button 
-            @click="saveAsNewVersion(viewingStatement.id)"
-            :disabled="saving"
-            class="w-full px-4 py-3 bg-teal-600 text-white rounded-md hover:bg-teal-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-sm font-medium transition-colors text-left"
-          >
-            <div class="font-semibold">Save as New Version</div>
-            <div class="text-xs text-teal-100 mt-1">Creates a new version entry and preserves all previous versions</div>
-          </button>
-          <button 
-            @click="replaceCurrentVersion(viewingStatement.id)"
-            :disabled="saving"
-            class="w-full px-4 py-3 bg-gray-600 text-white rounded-md hover:bg-gray-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-sm font-medium transition-colors text-left"
-          >
-            <div class="font-semibold">Replace Current Version</div>
-            <div class="text-xs text-gray-300 mt-1">Overwrites the currently selected version (does not create a new version)</div>
-          </button>
+    <Teleport to="body">
+      <Transition name="modal">
+        <div v-if="showSaveModal" class="modal-overlay" @click.self="!saving && (showSaveModal = false)">
+          <div class="modal">
+            <div class="modal-header">
+              <h3 class="text-lg font-semibold text-secondary-900">Save Changes</h3>
+            </div>
+            <div class="modal-body">
+              <p class="text-secondary-600 mb-6">How would you like to save your changes?</p>
+              <div class="space-y-3">
+                <button 
+                  @click="saveAsNewVersion(viewingStatement.id)"
+                  :disabled="saving"
+                  class="w-full p-4 rounded-xl border-2 border-primary-200 bg-primary-50 hover:bg-primary-100 text-left transition-colors disabled:opacity-50"
+                >
+                  <div class="flex items-start gap-3">
+                    <div class="w-10 h-10 rounded-lg bg-primary-500 flex items-center justify-center text-white flex-shrink-0">
+                      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 4v16m8-8H4" />
+                      </svg>
+                    </div>
+                    <div>
+                      <div class="font-semibold text-secondary-900">Save as New Version</div>
+                      <div class="text-sm text-secondary-500 mt-1">Creates a new version and preserves all previous versions</div>
+                    </div>
+                  </div>
+                </button>
+                <button 
+                  @click="replaceCurrentVersion(viewingStatement.id)"
+                  :disabled="saving"
+                  class="w-full p-4 rounded-xl border-2 border-secondary-200 hover:bg-secondary-50 text-left transition-colors disabled:opacity-50"
+                >
+                  <div class="flex items-start gap-3">
+                    <div class="w-10 h-10 rounded-lg bg-secondary-500 flex items-center justify-center text-white flex-shrink-0">
+                      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                    </div>
+                    <div>
+                      <div class="font-semibold text-secondary-900">Replace Current Version</div>
+                      <div class="text-sm text-secondary-500 mt-1">Overwrites the currently selected version</div>
+                    </div>
+                  </div>
+                </button>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button @click="showSaveModal = false" :disabled="saving" class="btn btn-secondary">
+                Cancel
+              </button>
+            </div>
+          </div>
         </div>
-        <div class="mt-6 flex justify-end">
-          <button 
-            @click="showSaveModal = false"
-            class="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 text-sm font-medium transition-colors"
-            :disabled="saving"
-          >
-            Cancel
-          </button>
-        </div>
-      </div>
-    </div>
+      </Transition>
+    </Teleport>
 
     <!-- Delete Confirmation Modal -->
-    <div v-if="showDeleteModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div class="bg-white rounded-lg p-6 max-w-md w-full">
-        <h3 class="text-xl font-semibold mb-4 text-red-600">Delete Capability Statement</h3>
-        <p class="text-gray-700 mb-2">
-          Are you sure you want to delete "<strong>{{ statementToDelete?.title }}</strong>"?
-        </p>
-        <p class="text-gray-600 text-sm mb-4">
-          This will permanently delete the capability statement and <strong>ALL {{ statementToDelete?.versions?.length || 0 }} version(s)</strong> associated with it. This action cannot be undone.
-        </p>
-        <div class="flex justify-end gap-3">
-          <button 
-            @click="showDeleteModal = false"
-            class="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 text-sm font-medium transition-colors"
-            :disabled="deleting"
-          >
-            Cancel
-          </button>
-          <button 
-            @click="deleteStatement"
-            :disabled="deleting"
-            class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:bg-gray-400 text-sm font-medium transition-colors"
-          >
-            {{ deleting ? 'Deleting...' : 'Delete Permanently' }}
-          </button>
+    <Teleport to="body">
+      <Transition name="modal">
+        <div v-if="showDeleteModal" class="modal-overlay" @click.self="!deleting && (showDeleteModal = false)">
+          <div class="modal">
+            <div class="modal-header border-b-red-100">
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center text-red-600">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                </div>
+                <h3 class="text-lg font-semibold text-red-600">Delete Statement</h3>
+              </div>
+            </div>
+            <div class="modal-body">
+              <p class="text-secondary-700 mb-2">
+                Are you sure you want to delete "<strong>{{ statementToDelete?.title }}</strong>"?
+              </p>
+              <p class="text-secondary-500 text-sm">
+                This will permanently delete the statement and <strong>all {{ statementToDelete?.versions?.length || 0 }} version(s)</strong>. This action cannot be undone.
+              </p>
+            </div>
+            <div class="modal-footer">
+              <button @click="showDeleteModal = false" :disabled="deleting" class="btn btn-secondary">
+                Cancel
+              </button>
+              <button @click="deleteStatement" :disabled="deleting" class="btn btn-danger">
+                {{ deleting ? 'Deleting...' : 'Delete Permanently' }}
+              </button>
+            </div>
+          </div>
         </div>
-      </div>
-    </div>
+      </Transition>
+    </Teleport>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, nextTick, watch } from 'vue'
+import { ref, computed, onMounted, nextTick } from 'vue'
 import { useCapStatementStore } from '../stores/capStatementStore'
 import InlineDocumentEditor from '../components/InlineDocumentEditor.vue'
 import dataService from '../services/dataService'
-// Using browser print for PDF export instead of html2pdf
 
 const capStore = useCapStatementStore()
 const viewingStatement = ref(null)
@@ -318,11 +389,9 @@ const versionNameInput = ref(null)
 
 const currentVersionContent = computed(() => {
   if (!viewingStatement.value) return ''
-  // Otherwise show display_content (edited if exists, else generated)
   if (viewingStatement.value.display_content) {
     return viewingStatement.value.display_content
   }
-  // Fallback to version content
   if (selectedVersion.value) {
     const version = viewingStatement.value.versions?.find(v => v.id === selectedVersion.value)
     return version?.content || ''
@@ -342,18 +411,27 @@ const selectedVersionData = computed(() => {
 
 function formatDate(dateString) {
   if (!dateString) return '-'
-  return new Date(dateString).toLocaleDateString()
+  return new Date(dateString).toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric'
+  })
+}
+
+function getStatusBadgeClass(status) {
+  if (!status || status === 'In Progress') return 'badge-warning'
+  if (status === 'Closed Won') return 'badge-success'
+  if (status === 'Closed Lost') return 'badge-danger'
+  return 'badge-secondary'
 }
 
 async function viewStatement(id, preserveSelectedVersion = false) {
   try {
     await capStore.fetchStatementById(id)
     viewingStatement.value = capStore.currentStatement
-    // Only auto-select latest version if we're not preserving the current selection
     if (!preserveSelectedVersion && viewingStatement.value.latest_version) {
       selectedVersion.value = viewingStatement.value.latest_version.id
     }
-    // Reset editing state when viewing
     capStore.isEditing = false
   } catch (error) {
     alert('Error loading statement: ' + error.message)
@@ -366,29 +444,23 @@ async function editStatement(id) {
   }
   capStore.startEditing()
   
-  // Load content into editor after editing mode is activated
   await nextTick()
   if (statementEditorRef.value && viewingStatement.value) {
-    // Get content from selected version, or fall back to display_content
     let content = ''
     
     if (selectedVersion.value) {
-      // Load the selected version's content
       const version = viewingStatement.value.versions?.find(v => v.id === selectedVersion.value)
       if (version) {
         content = version.content || ''
       }
     }
     
-    // Fallback to display_content if no version selected or version has no content
     if (!content) {
       content = viewingStatement.value.display_content || 
                 viewingStatement.value.edited_content || 
                 viewingStatement.value.generated_content || ''
     }
     
-    // Convert HTML content to document structure
-    // InlineDocumentEditor expects: { pages: [{ id: 'page-1', content: '<html>...</html>' }] }
     const documentData = {
       pages: [{
         id: 'page-1',
@@ -402,7 +474,6 @@ async function editStatement(id) {
 
 function cancelEdits() {
   capStore.cancelEditing()
-  // Reload statement to revert
   if (viewingStatement.value) {
     viewStatement(viewingStatement.value.id)
   }
@@ -413,7 +484,6 @@ function confirmDelete(statement) {
   showDeleteModal.value = true
 }
 
-// Version name helpers
 function getVersionDisplayName(version) {
   if (version.version_name) {
     return `${version.version_name} (v${version.version_number})`
@@ -425,7 +495,6 @@ function startVersionNameEdit() {
   if (!selectedVersionData.value) return
   newVersionName.value = selectedVersionData.value.version_name || ''
   editingVersionName.value = true
-  // Focus the input after Vue updates the DOM
   nextTick(() => {
     if (versionNameInput.value) {
       versionNameInput.value.focus()
@@ -447,21 +516,18 @@ async function saveVersionName() {
   
   const trimmedName = newVersionName.value.trim()
   
-  // Don't save if name hasn't changed
   if (trimmedName === (selectedVersionData.value.version_name || '')) {
     cancelVersionNameEdit()
     return
   }
   
   try {
-    // Call API to rename version
     await dataService.renameVersion(
       viewingStatement.value.id,
       selectedVersionData.value.id,
-      trimmedName || null // Send null if empty to clear the name
+      trimmedName || null
     )
     
-    // Update local data
     const versionIndex = viewingStatement.value.versions.findIndex(v => v.id === selectedVersionData.value.id)
     if (versionIndex !== -1) {
       viewingStatement.value.versions[versionIndex].version_name = trimmedName || null
@@ -483,19 +549,15 @@ async function deleteStatement() {
   try {
     await dataService.deleteStatement(statementToDelete.value.id)
     
-    // Close modal
     showDeleteModal.value = false
-    statementToDelete.value = null
     
-    // Close view modal if viewing the deleted statement
     if (viewingStatement.value?.id === statementToDelete.value?.id) {
       viewingStatement.value = null
     }
     
-    // Refresh the list
+    statementToDelete.value = null
     await capStore.fetchStatements()
     
-    alert('Capability statement and all its versions have been deleted successfully.')
   } catch (error) {
     console.error('Error deleting statement:', error)
     alert('Error deleting statement: ' + (error.response?.data?.error?.message || error.message))
@@ -509,12 +571,8 @@ function getEditorContent() {
     return null
   }
   
-  // Get document data from editor
   const documentData = statementEditorRef.value.getDocumentData()
   
-  // Extract HTML content from pages
-  // For capability statements, we save as a single HTML string
-  // Combine all pages' content into one HTML string
   let htmlContent = ''
   if (documentData.pages && documentData.pages.length > 0) {
     htmlContent = documentData.pages.map(page => page.content || '').join('')
@@ -540,17 +598,12 @@ async function saveAsNewVersion(id) {
       return
     }
     
-    // Call API to create new version
     const response = await dataService.createVersion(id, htmlContent)
     
     if (response.success) {
-      // Close modal
       showSaveModal.value = false
-      // Exit editing mode
       capStore.cancelEditing()
-      // Reload statement to show new version
       await viewStatement(id)
-      alert('New version created successfully')
     } else {
       throw new Error(response.error?.message || 'Failed to create new version')
     }
@@ -585,17 +638,12 @@ async function replaceCurrentVersion(id) {
       return
     }
     
-    // Call API to update existing version
     const response = await dataService.updateVersion(id, selectedVersion.value, htmlContent)
     
     if (response.success) {
-      // Close modal
       showSaveModal.value = false
-      // Exit editing mode
       capStore.cancelEditing()
-      // Reload statement to show updated version
       await viewStatement(id)
-      alert('Version updated successfully')
     } else {
       throw new Error(response.error?.message || 'Failed to update version')
     }
@@ -608,29 +656,17 @@ async function replaceCurrentVersion(id) {
 }
 
 async function loadVersion() {
-  // Version content is loaded via computed property
-  // Reset editing when changing versions
   if (capStore.isEditing) {
     capStore.cancelEditing()
   }
-  // Force reload of statement to update version data, but preserve selected version
   if (viewingStatement.value) {
     await viewStatement(viewingStatement.value.id, true)
   }
 }
 
-function getStatusColorClass(status) {
-  if (!status) return 'bg-orange-100 text-orange-800'
-  if (status === 'Closed Won') return 'bg-green-100 text-green-800'
-  if (status === 'Closed Lost') return 'bg-red-100 text-red-800'
-  if (status === 'In Progress') return 'bg-orange-100 text-orange-800'
-  return 'bg-gray-100 text-gray-800'
-}
-
 function startStatusEdit(statementId, currentStatus) {
   editingStatusId.value = statementId
   editingStatusValue.value = currentStatus || 'In Progress'
-  // Focus the select after it renders
   nextTick(() => {
     if (statusSelectRef.value) {
       statusSelectRef.value.focus()
@@ -639,7 +675,6 @@ function startStatusEdit(statementId, currentStatus) {
 }
 
 function cancelStatusEdit() {
-  // Small delay to allow change event to fire first
   setTimeout(() => {
     editingStatusId.value = null
     editingStatusValue.value = null
@@ -652,7 +687,6 @@ async function saveStatus(statementId) {
     return
   }
   
-  // Optimistic update
   const statement = capStore.statements.find(s => s.id === statementId)
   const originalStatus = statement?.status
   
@@ -661,23 +695,19 @@ async function saveStatus(statementId) {
   }
   
   try {
-    // Persist to backend
     const response = await dataService.updateStatement(statementId, {
       status: editingStatusValue.value
     })
     
     if (response.success) {
-      // Update store with fresh data
       await capStore.fetchStatements()
     } else {
-      // Revert on failure
       if (statement) {
         statement.status = originalStatus
       }
       alert('Failed to update status')
     }
   } catch (error) {
-    // Revert on error
     if (statement) {
       statement.status = originalStatus
     }
@@ -689,11 +719,9 @@ async function saveStatus(statementId) {
 }
 
 async function downloadVersion() {
-  // Get content for PDF
   let content = ''
   let version = selectedVersionData.value
   
-  // Try to get content from multiple sources
   if (capStore.isEditing && statementEditorRef.value) {
     const editorContent = getEditorContent()
     if (editorContent) content = editorContent
@@ -708,13 +736,9 @@ async function downloadVersion() {
     return
   }
   
-  console.log('Content for PDF:', content.substring(0, 200))
-  
-  // Get version number for filename
   const versionNumber = version?.version_number || viewingStatement.value?.latest_version?.version_number || 'draft'
   const filename = `${viewingStatement.value?.title || 'capability-statement'}_v${versionNumber}.pdf`
   
-  // Open new window for print-to-PDF
   const printWindow = window.open('', '_blank', 'width=816,height=1056')
   
   if (!printWindow) {
@@ -722,115 +746,51 @@ async function downloadVersion() {
     return
   }
   
-  // Write HTML to print window
   printWindow.document.write(`
     <!DOCTYPE html>
     <html>
     <head>
       <title>${filename}</title>
       <style>
-        @page {
-          size: A4;
-          margin: 20mm;
-        }
+        @page { size: letter; margin: 0.75in; }
         @media print {
-          body {
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-          }
+          body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
         }
+        * { box-sizing: border-box; }
         body {
-          font-family: 'Times New Roman', Georgia, serif;
-          font-size: 12pt;
-          line-height: 1.6;
-          color: #000;
-          margin: 0;
-          padding: 20px;
-          background: white;
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          font-size: 11pt; line-height: 1.5; color: #1a1d21;
+          margin: 0; padding: 0; background: white;
         }
-        p {
-          margin: 0.8em 0;
-        }
-        h1 { font-size: 24pt; margin: 0.5em 0; }
-        h2 { font-size: 18pt; margin: 0.5em 0; }
-        h3 { font-size: 14pt; margin: 0.5em 0; }
-        h4 { font-size: 12pt; margin: 0.5em 0; }
-        img, .editor-image {
-          max-width: 100%;
-          height: auto;
-          margin: 1em 0;
-        }
-        table, .editor-table {
-          width: 100%;
-          border-collapse: collapse;
-          margin: 1em 0;
-        }
-        table td, table th,
-        .editor-table td, .editor-table th {
-          border: 1px solid #000;
-          padding: 8px;
-          text-align: left;
-        }
-        table th, .editor-table th {
-          background-color: #f5f5f5;
-          font-weight: bold;
-        }
+        p { margin: 0 0 11pt 0; }
+        h1 { font-size: 20pt; margin: 20pt 0 6pt; font-weight: 400; }
+        h2 { font-size: 16pt; margin: 18pt 0 6pt; font-weight: 400; }
+        h3 { font-size: 14pt; margin: 16pt 0 4pt; font-weight: 600; }
+        img { max-width: 100%; height: auto; display: block; margin: 11pt 0; }
+        table { border-collapse: collapse !important; border: 2px solid #000 !important; margin: 11pt 0 !important; width: auto !important; }
+        td, th { border: 1px solid #000 !important; padding: 8px 12px !important; vertical-align: top !important; }
+        th { background-color: #f3f4f6 !important; font-weight: 600 !important; }
+        table p { margin: 0 !important; }
         strong, b { font-weight: bold; }
         em, i { font-style: italic; }
-        u { text-decoration: underline; }
-        ul, ol { margin: 0.5em 0; padding-left: 1.5em; }
-        li { margin: 0.3em 0; }
-        blockquote {
-          border-left: 3px solid #ccc;
-          margin: 1em 0;
-          padding-left: 1em;
-          font-style: italic;
-        }
+        ul, ol { margin: 11pt 0; padding-left: 1.5em; }
+        li { margin: 4pt 0; }
       </style>
     </head>
-    <body>
-      ${content}
-    </body>
+    <body>${content}</body>
     </html>
   `)
   
   printWindow.document.close()
   
-  // Wait for content to load
-  await new Promise(resolve => {
-    printWindow.onload = resolve
-    setTimeout(resolve, 1000) // Fallback timeout
-  })
-  
-  // Wait for images
-  const images = printWindow.document.querySelectorAll('img')
-  if (images.length > 0) {
-    await Promise.race([
-      Promise.all(Array.from(images).map(img => 
-        new Promise(resolve => {
-          if (img.complete) resolve()
-          else {
-            img.onload = resolve
-            img.onerror = resolve
-          }
-        })
-      )),
-      new Promise(resolve => setTimeout(resolve, 3000))
-    ])
-  }
-  
-  // Small delay then print
   setTimeout(() => {
     printWindow.print()
-    // Don't close immediately - let user save as PDF
   }, 500)
 }
 
 function isHTMLContent(content) {
   if (!content || typeof content !== 'string') return false
-  // Check if content contains HTML tags
-  const htmlTagPattern = /<[a-z][\s\S]*>/i
-  return htmlTagPattern.test(content)
+  return /<[a-z][\s\S]*>/i.test(content)
 }
 
 onMounted(async () => {
@@ -839,25 +799,53 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.editor-container {
-  min-height: 600px;
+/* Modal transitions */
+.modal-enter-active,
+.modal-leave-active {
+  transition: all 0.3s ease;
 }
 
-.inline-status-editor {
-  display: inline-block;
+.modal-enter-from,
+.modal-leave-to {
+  opacity: 0;
 }
 
-.status-select {
-  @apply px-2 py-1 rounded-full text-xs font-medium outline-none border-none cursor-pointer;
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3E%3C/svg%3E");
-  background-position: right 0.25rem center;
-  background-repeat: no-repeat;
-  background-size: 1rem;
-  padding-right: 1.75rem;
+.modal-enter-from .modal,
+.modal-leave-to .modal {
+  transform: scale(0.95) translateY(10px);
 }
 
-.status-select:focus {
-  @apply ring-2 ring-teal-500 ring-offset-1;
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+/* Prose content styling */
+:deep(.prose table) {
+  border-collapse: collapse !important;
+  border: 2px solid #000 !important;
+  margin: 1em 0 !important;
+}
+
+:deep(.prose td),
+:deep(.prose th) {
+  border: 1px solid #000 !important;
+  padding: 8px 12px !important;
+}
+
+:deep(.prose th) {
+  background-color: #f3f4f6 !important;
+  font-weight: 600 !important;
+}
+
+:deep(.prose img) {
+  max-width: 100%;
+  height: auto;
+  margin: 1em 0;
 }
 </style>

@@ -200,10 +200,6 @@ import TableHeader from '@tiptap/extension-table-header'
 import { TextStyle } from '@tiptap/extension-text-style'
 import Color from '@tiptap/extension-color'
 
-// Note: User needs to install: npm install @tiptap/extension-underline
-// For now, we'll create a simple underline mark using text-decoration CSS
-// This is a temporary workaround until the extension is installed
-
 const props = defineProps({
   initialContent: {
     type: String,
@@ -258,8 +254,6 @@ function createPage(pageId = null) {
       }),
     ],
     content: '',
-    // Note: We don't auto-save on every update - only on explicit "Confirm" button
-    // onUpdate is disabled to prevent auto-saving
     editorProps: {
       attributes: {
         class: 'page-editor',
@@ -315,49 +309,39 @@ function insertTableWithSize(rows, cols) {
   
   const editor = currentPage.editor
   
-  // Insert table at current cursor position (inline insertion)
-  // TipTap's insertTable inserts at the current selection/cursor position
   editor.chain().focus().insertTable({ 
     rows: rows, 
     cols: cols, 
     withHeaderRow: false 
   }).run()
   
-  // Hide grid selector
   showTableGrid.value = false
   
-  // CRITICAL: Move cursor into first cell (row 1, col 1)
-  // TipTap's insertTable should place cursor automatically, but we ensure it
   setTimeout(() => {
     try {
       const { state } = editor
       const { $anchor } = state.selection
       
-      // Find table node in the document
       let tablePos = null
       state.doc.descendants((node, pos) => {
         if (node.type.name === 'table') {
           tablePos = pos
-          return false // Stop searching
+          return false
         }
       })
       
       if (tablePos !== null) {
-        // Navigate to first cell: table > tbody > first row > first cell > paragraph
-        // TipTap structure: table > tableRow > tableCell > paragraph
-        const firstCellPos = tablePos + 3 // Approximate - TipTap will handle positioning
+        const firstCellPos = tablePos + 3
         editor.commands.setTextSelection(firstCellPos)
         editor.commands.focus()
       }
     } catch (error) {
-      // If explicit positioning fails, TipTap should have already placed cursor correctly
       console.warn('Could not explicitly position cursor in first cell:', error)
     }
   }, 10)
 }
 
 function hideTableGrid() {
-  // Small delay to allow click to register
   setTimeout(() => {
     showTableGrid.value = false
   }, 200)
@@ -379,8 +363,6 @@ function applyFormat(format) {
   } else if (format === 'italic') {
     editor.chain().focus().toggleItalic().run()
   } else if (format === 'underline') {
-    // Note: Underline requires @tiptap/extension-underline to be installed
-    // For now, this will fail silently. Install with: npm install @tiptap/extension-underline
     try {
       editor.chain().focus().toggleUnderline().run()
     } catch (e) {
@@ -477,7 +459,6 @@ async function handleImageUpload(event) {
   
   console.log('File selected:', file.name, file.type, file.size)
   
-  // Validate MIME type (Step 1: Validation)
   const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp', 'image/gif']
   if (!allowedTypes.includes(file.type)) {
     alert(`Invalid file type: ${file.type}\n\nPlease select a valid image file (PNG, JPEG, WebP, or GIF)`)
@@ -487,8 +468,7 @@ async function handleImageUpload(event) {
     return
   }
   
-  // Validate file size (10MB limit)
-  const maxSize = 10 * 1024 * 1024 // 10MB
+  const maxSize = 10 * 1024 * 1024
   if (file.size > maxSize) {
     alert(`File size (${(file.size / 1024 / 1024).toFixed(2)} MB) exceeds the 10MB limit`)
     if (imageInput.value) {
@@ -497,14 +477,11 @@ async function handleImageUpload(event) {
     return
   }
   
-  // Upload and insert image
   try {
     await handleImageFile(file)
   } catch (error) {
-    // Error already handled in handleImageFile
     console.error('Image upload failed:', error)
   } finally {
-    // Always reset input
     if (imageInput.value) {
       imageInput.value.value = ''
     }
@@ -523,23 +500,19 @@ async function handleImageFile(file) {
     return
   }
   
-  // CRITICAL: Must have templateId OR statementId for persistent storage
   if (!props.templateId && !props.statementId) {
     alert('Cannot upload image: Please save first to enable image uploads.')
     return
   }
   
-  // RULE 1: Upload FIRST, wait for completion, THEN insert
   let imageUrl = null
   
   try {
-    // Step 1: Upload image to backend - WAIT for completion
     const formData = new FormData()
     formData.append('image', file)
     
     console.log('Uploading image to server...')
     
-    // Use appropriate upload endpoint based on context
     let response
     if (props.templateId) {
       response = await dataService.uploadTemplateImage(props.templateId, formData)
@@ -548,12 +521,6 @@ async function handleImageFile(file) {
     }
     console.log('Upload response:', response)
     
-    // Step 2: Extract image URL from response
-    // Backend returns: { success: true, data: { url: '/uploads/templates/...', imageUrl: '...' } }
-    // Axios interceptor (api.js line 28) returns response.data directly
-    // So after interceptor, response = { success: true, data: { url: '...' } }
-    
-    // Try all possible response structures
     if (response?.data?.url) {
       imageUrl = response.data.url
     } else if (response?.data?.imageUrl) {
@@ -566,50 +533,34 @@ async function handleImageFile(file) {
       imageUrl = response
     }
     
-    // CRITICAL: Validate URL before insertion
     if (!imageUrl || typeof imageUrl !== 'string' || imageUrl.trim() === '') {
       console.error('Invalid image URL extracted. Full response:', response)
       throw new Error('No valid image URL returned from server. Response: ' + JSON.stringify(response))
     }
     
-    // Ensure URL is properly formatted
     imageUrl = imageUrl.trim()
     
-    // CRITICAL: Convert relative URLs to absolute URLs pointing to backend server
-    // Backend runs on http://localhost:3000 (or from env), frontend on http://localhost:5173
-    // Relative URLs like /uploads/templates/... will be requested from frontend server (wrong!)
-    // Must make them absolute: http://localhost:3000/uploads/templates/...
     if (imageUrl.startsWith('/')) {
-      // Get backend URL from environment or default to localhost:3000
       const backendUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'
-      // Remove trailing slash from backendUrl if present
       const baseUrl = backendUrl.replace(/\/$/, '')
-      // Prepend backend URL to relative path
       imageUrl = baseUrl + imageUrl
     } else if (!imageUrl.startsWith('http://') && !imageUrl.startsWith('https://')) {
-      // If it's not absolute and not relative, make it relative first
       imageUrl = '/' + imageUrl
-      // Then convert to absolute
       const backendUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'
       const baseUrl = backendUrl.replace(/\/$/, '')
       imageUrl = baseUrl + imageUrl
     }
     
-    // Validate URL format
     if (imageUrl.includes('blob:') || imageUrl.startsWith('data:') || imageUrl === 'undefined' || imageUrl === 'null') {
       throw new Error('Invalid image URL format: ' + imageUrl)
     }
     
     console.log('Valid image URL extracted (absolute):', imageUrl)
     
-    // Step 3: ONLY AFTER upload succeeds and URL is validated, insert image
-    // RULE 2: Insert inline at cursor position
     const editor = currentPage.editor
     
-    // Ensure editor is focused and ready
     editor.chain().focus()
     
-    // Insert image at current cursor position (replaces selection if text is selected)
     const insertResult = editor.chain().focus().setImage({ src: imageUrl }).run()
     
     if (!insertResult) {
@@ -618,7 +569,6 @@ async function handleImageFile(file) {
     
     console.log('Image inserted successfully with URL:', imageUrl)
     
-    // Attach resize handles to the new image after a short delay
     setTimeout(() => {
       attachResizeHandles(editor)
       console.log('Resize handles attached to new image')
@@ -635,8 +585,6 @@ async function handleImageFile(file) {
     const errorMessage = uploadError.response?.data?.error?.message || uploadError.message || 'Image upload failed'
     alert(`Error uploading image: ${errorMessage}\n\nPlease ensure:\n- File is a valid image (PNG, JPEG, WebP)\n- File size is under 10MB\n- Template is saved`)
     
-    // RULE 1: DO NOT insert image on failure
-    // Error is thrown, so no image will be inserted
     throw uploadError
   }
 }
@@ -652,7 +600,6 @@ function serializeDocument() {
 }
 
 function loadDocument(documentData) {
-  // Destroy existing editors first
   pages.value.forEach(page => {
     if (page.editor) {
       page.editor.destroy()
@@ -662,7 +609,6 @@ function loadDocument(documentData) {
   if (documentData && documentData.pages && documentData.pages.length > 0) {
     pages.value = documentData.pages.map(pageData => {
       const page = createPage(pageData.id)
-      // Use nextTick to ensure editor is fully initialized before setting content
       setTimeout(() => {
         if (page.editor && !page.editor.isDestroyed) {
           page.editor.commands.setContent(pageData.content || '')
@@ -671,7 +617,6 @@ function loadDocument(documentData) {
       return page
     })
   } else {
-    // Start with one empty page
     pages.value = [createPage()]
   }
 }
@@ -683,8 +628,6 @@ async function loadExistingDocument() {
   }
 
   try {
-    // Fetch the document content from the backend
-    // Look for content with section_id='document', element_id='full_content', page_number=1
     const response = await dataService.getTemplateContent(props.templateId, {
       section_id: 'document',
       page_number: 1
@@ -698,7 +641,6 @@ async function loadExistingDocument() {
     if (documentEntry && documentEntry.content_value) {
       try {
         const documentData = JSON.parse(documentEntry.content_value)
-        // Clear existing pages first
         pages.value.forEach(page => {
           if (page.editor) {
             page.editor.destroy()
@@ -706,11 +648,9 @@ async function loadExistingDocument() {
         })
         pages.value = []
         
-        // Load document data - create pages and set content
         if (documentData.pages && documentData.pages.length > 0) {
           pages.value = documentData.pages.map(pageData => {
             const page = createPage(pageData.id)
-            // Set content immediately after editor creation
             if (pageData.content) {
               page.editor.commands.setContent(pageData.content)
             }
@@ -721,7 +661,6 @@ async function loadExistingDocument() {
         }
       } catch (parseError) {
         console.error('Error parsing document JSON:', parseError)
-        // If parsing fails, start with empty page
         pages.value.forEach(page => {
           if (page.editor) {
             page.editor.destroy()
@@ -730,7 +669,6 @@ async function loadExistingDocument() {
         pages.value = [createPage()]
       }
     } else {
-      // No existing content, start with one empty page
       pages.value.forEach(page => {
         if (page.editor) {
           page.editor.destroy()
@@ -740,7 +678,6 @@ async function loadExistingDocument() {
     }
   } catch (error) {
     console.error('Error loading existing document:', error)
-    // On error, start with one empty page
     pages.value.forEach(page => {
       if (page.editor) {
         page.editor.destroy()
@@ -753,7 +690,6 @@ async function loadExistingDocument() {
 watch(() => props.templateId, () => {
   if (props.templateId) {
     loadExistingDocument().then(() => {
-      // Re-initialize image resize after document loads
       setTimeout(() => {
         initializeImageResize()
       }, 500)
@@ -762,20 +698,16 @@ watch(() => props.templateId, () => {
 }, { immediate: true })
 
 onMounted(() => {
-  // loadExistingDocument is called by watch immediately, so we don't need to call it here
-  // But if templateId is null, we still need to initialize
   if (!props.templateId) {
     pages.value = [createPage()]
   }
   
-  // Initialize image resize functionality after mount
   nextTick(() => {
     initializeImageResize()
   })
 })
 
 onBeforeUnmount(() => {
-  // Cleanup image resize handlers
   cleanupImageResize()
   
   pages.value.forEach(page => {
@@ -789,24 +721,20 @@ onBeforeUnmount(() => {
 let resizeHandlers = []
 
 function initializeImageResize() {
-  // Watch for editor updates to attach resize handles to images
   pages.value.forEach(page => {
     if (page.editor) {
-      // Attach handles on selection change
       page.editor.on('selectionUpdate', () => {
         nextTick(() => {
           attachResizeHandles(page.editor)
         })
       })
       
-      // Attach handles when content updates (new images added)
       page.editor.on('update', () => {
         nextTick(() => {
           attachResizeHandles(page.editor)
         })
       })
       
-      // Also attach on transaction (any editor change)
       page.editor.on('transaction', () => {
         nextTick(() => {
           attachResizeHandles(page.editor)
@@ -815,7 +743,6 @@ function initializeImageResize() {
     }
   })
   
-  // Initial attachment with delay to ensure DOM is ready
   setTimeout(() => {
     pages.value.forEach(page => {
       if (page.editor) {
@@ -832,26 +759,21 @@ function cleanupImageResize() {
 
 function attachResizeHandles(editor) {
   const editorElement = editor.view.dom
-  // Try multiple selectors to find images
   const images = editorElement.querySelectorAll('img')
   
   console.log('attachResizeHandles called, found images:', images.length)
   
   images.forEach(img => {
-    // Skip if already has resize listener
     if (img.dataset.resizeEnabled === 'true') {
       return
     }
     
-    // Mark as having resize enabled
     img.dataset.resizeEnabled = 'true'
     
     console.log('Adding resize capability to image:', img.src?.substring(0, 80))
     
-    // Make image clickable
     img.style.cursor = 'pointer'
     
-    // Add click handler to show resize UI
     const onClick = (e) => {
       e.preventDefault()
       e.stopPropagation()
@@ -867,21 +789,17 @@ function attachResizeHandles(editor) {
   })
 }
 
-// Global resize UI state
 let activeResizeOverlay = null
 
 function showImageResizeUI(img, editor) {
   console.log('showImageResizeUI called for image')
   
-  // Remove any existing overlay
   hideImageResizeUI()
   
-  // Get image position
   const rect = img.getBoundingClientRect()
   const scrollTop = window.scrollY || document.documentElement.scrollTop
   const scrollLeft = window.scrollX || document.documentElement.scrollLeft
   
-  // Create overlay container
   const overlay = document.createElement('div')
   overlay.id = 'image-resize-overlay'
   overlay.style.cssText = `
@@ -896,7 +814,6 @@ function showImageResizeUI(img, editor) {
     z-index: 9999;
   `
   
-  // Add resize handles
   const handles = ['nw', 'ne', 'sw', 'se']
   const handlePositions = {
     'nw': { top: '-6px', left: '-6px', cursor: 'nwse-resize' },
@@ -920,14 +837,12 @@ function showImageResizeUI(img, editor) {
       z-index: 10000;
     `
     
-    // Position the handle
     Object.entries(handlePositions[handle]).forEach(([prop, value]) => {
       if (prop !== 'cursor') {
         handleEl.style[prop] = value
       }
     })
     
-    // Add mousedown for resize
     handleEl.addEventListener('mousedown', (e) => {
       e.preventDefault()
       e.stopPropagation()
@@ -940,7 +855,6 @@ function showImageResizeUI(img, editor) {
   document.body.appendChild(overlay)
   activeResizeOverlay = overlay
   
-  // Add click outside listener to close
   const closeOnClickOutside = (e) => {
     if (!overlay.contains(e.target) && e.target !== img) {
       hideImageResizeUI()
@@ -977,7 +891,6 @@ function startImageResize(e, img, handle, editor, overlay) {
     
     let newWidth = startWidth
     
-    // Calculate new width based on handle
     if (handle === 'se' || handle === 'ne') {
       newWidth = Math.max(50, startWidth + deltaX)
     } else {
@@ -986,11 +899,9 @@ function startImageResize(e, img, handle, editor, overlay) {
     
     const newHeight = newWidth / aspectRatio
     
-    // Update image size
     img.style.width = `${newWidth}px`
     img.style.height = `${newHeight}px`
     
-    // Update overlay size and position
     const rect = img.getBoundingClientRect()
     const scrollTop = window.scrollY || document.documentElement.scrollTop
     const scrollLeft = window.scrollX || document.documentElement.scrollLeft
@@ -1004,7 +915,6 @@ function startImageResize(e, img, handle, editor, overlay) {
     document.removeEventListener('mousemove', onMouseMove)
     document.removeEventListener('mouseup', onMouseUp)
     
-    // Save the new size to TipTap
     const newWidth = img.offsetWidth
     const newHeight = img.offsetHeight
     updateImageNodeSize(img, newWidth, newHeight, editor)
@@ -1017,11 +927,9 @@ function startImageResize(e, img, handle, editor, overlay) {
 }
 
 function updateImageNodeSize(img, width, height, editor) {
-  // Find the image node and update its attributes
   const { state } = editor
   let imagePos = null
   
-  // Ensure width and height are numbers
   const numWidth = Math.round(typeof width === 'string' ? parseFloat(width) : width)
   const numHeight = Math.round(typeof height === 'string' ? parseFloat(height) : height)
   
@@ -1036,7 +944,6 @@ function updateImageNodeSize(img, width, height, editor) {
   })
   
   if (imagePos !== null) {
-    // Use transaction to update attributes
     const { tr } = state
     tr.setNodeMarkup(imagePos, undefined, {
       ...state.doc.nodeAt(imagePos).attrs,
@@ -1047,7 +954,6 @@ function updateImageNodeSize(img, width, height, editor) {
     
     console.log('Image node size updated in TipTap:', { width: numWidth, height: numHeight })
     
-    // Verify the update
     setTimeout(() => {
       const newState = editor.state
       newState.doc.descendants((node, pos) => {
@@ -1220,13 +1126,10 @@ defineExpose({
   margin: 1rem 0;
   cursor: pointer;
   border-radius: 4px;
-  /* Google Docs-like behavior */
   box-sizing: border-box;
-  /* Ensure images load correctly */
   object-fit: contain;
 }
 
-/* Ensure images are not broken - add error handling */
 :deep(.editor-image[src=""]) {
   display: none;
 }
@@ -1301,7 +1204,6 @@ defineExpose({
 }
 
 /* Google Docs-like Table Styling - BLACK BORDERS (MANDATORY) */
-/* Target ALL table elements in the editor - maximum specificity */
 :deep(.page-editor) table,
 :deep(.page-editor) table.editor-table,
 :deep(.page-editor table),
@@ -1311,13 +1213,12 @@ defineExpose({
   border-collapse: collapse !important;
   margin: 1rem 0 !important;
   width: 100% !important;
-  border: 1px solid #000000 !important; /* BLACK borders - NO EXCUSES */
+  border: 2px solid #000000 !important;
   background-color: #fff !important;
   table-layout: auto !important;
   border-spacing: 0 !important;
 }
 
-/* ALL cells must have BLACK visible borders - maximum specificity */
 :deep(.page-editor) table td,
 :deep(.page-editor) table th,
 :deep(.page-editor) table.editor-table td,
@@ -1330,7 +1231,7 @@ defineExpose({
 :deep(.editor-table th),
 :deep(table.editor-table td),
 :deep(table.editor-table th) {
-  border: 1px solid #000000 !important; /* BLACK borders - 1px solid black */
+  border: 1px solid #000000 !important;
   padding: 8px 12px !important;
   min-width: 50px !important;
   vertical-align: top !important;
@@ -1369,59 +1270,36 @@ defineExpose({
   background-color: #e8f0fe !important;
 }
 
-/* Ensure ALL borders are BLACK - maximum specificity for edge cases */
 :deep(.page-editor) table td:first-child,
 :deep(.page-editor) table th:first-child,
-:deep(.page-editor) table.editor-table td:first-child,
-:deep(.page-editor) table.editor-table th:first-child,
-:deep(.page-editor table td:first-child),
-:deep(.page-editor table th:first-child),
-:deep(.page-editor .editor-table td:first-child),
-:deep(.page-editor .editor-table th:first-child),
 :deep(.editor-table td:first-child),
-:deep(.editor-table th:first-child),
-:deep(table.editor-table td:first-child),
-:deep(table.editor-table th:first-child) {
+:deep(.editor-table th:first-child) {
   border-left: 1px solid #000000 !important;
 }
 
 :deep(.page-editor) table td:last-child,
 :deep(.page-editor) table th:last-child,
-:deep(.page-editor) table.editor-table td:last-child,
-:deep(.page-editor) table.editor-table th:last-child,
-:deep(.page-editor table td:last-child),
-:deep(.page-editor table th:last-child),
-:deep(.page-editor .editor-table td:last-child),
-:deep(.page-editor .editor-table th:last-child),
 :deep(.editor-table td:last-child),
-:deep(.editor-table th:last-child),
-:deep(table.editor-table td:last-child),
-:deep(table.editor-table th:last-child) {
+:deep(.editor-table th:last-child) {
   border-right: 1px solid #000000 !important;
 }
 
 :deep(.page-editor) table tr:first-child td,
 :deep(.page-editor) table thead th,
-:deep(.page-editor) table.editor-table tr:first-child td,
-:deep(.page-editor) table.editor-table thead th,
-:deep(.page-editor table tr:first-child td),
-:deep(.page-editor table thead th),
-:deep(.page-editor .editor-table tr:first-child td),
-:deep(.page-editor .editor-table thead th),
 :deep(.editor-table tr:first-child td),
-:deep(.editor-table thead th),
-:deep(table.editor-table tr:first-child td),
-:deep(table.editor-table thead th) {
+:deep(.editor-table thead th) {
   border-top: 1px solid #000000 !important;
 }
 
 :deep(.page-editor) table tr:last-child td,
-:deep(.page-editor) table.editor-table tr:last-child td,
-:deep(.page-editor table tr:last-child td),
-:deep(.page-editor .editor-table tr:last-child td),
-:deep(.editor-table tr:last-child td),
-:deep(table.editor-table tr:last-child td) {
+:deep(.editor-table tr:last-child td) {
   border-bottom: 1px solid #000000 !important;
+}
+
+/* Table cell paragraph styling */
+:deep(.page-editor table p),
+:deep(.editor-table p) {
+  margin: 0 !important;
 }
 
 /* Hidden file input */

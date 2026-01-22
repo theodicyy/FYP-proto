@@ -1,51 +1,682 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* ============================================
+   WONG PARTNERSHIP DESIGN SYSTEM
+   Premium • Professional • Trustworthy
+   ============================================ */
+
+:root {
+  /* Brand Colors */
+  --color-primary: #296067;      /* Deep teal - Primary brand */
+  --color-primary-hover: #245458;
+  --color-primary-light: #e8f3f4;
+  
+  --color-accent: #69999D;       /* Muted aqua - Secondary accent */
+  --color-accent-hover: #5e8a8d;
+  --color-accent-light: #f0f7f7;
+  
+  --color-text: #54585B;         /* Charcoal slate - Primary text */
+  --color-text-light: #6b6f72;
+  --color-text-muted: #8a8d90;
+  
+  --color-neutral: #A0A1A4;      /* Cool grey - Neutral surfaces */
+  --color-neutral-light: rgba(160, 161, 164, 0.08);
+  --color-neutral-border: rgba(160, 161, 164, 0.2);
+  
+  /* Surfaces */
+  --color-bg: #fafbfc;           /* Soft off-white background */
+  --color-surface: #ffffff;
+  --color-surface-elevated: #ffffff;
+  
+  /* Borders */
+  --color-border: #e8e9ea;
+  --color-border-strong: #d4d5d7;
+  
+  /* Shadows - Subtle and professional */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.08);
+}
+
 @layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  
   body {
-    @apply bg-gray-50 text-gray-900;
+    @apply font-sans;
+    color: var(--color-text);
+    background-color: var(--color-bg);
+    min-height: 100vh;
+    line-height: 1.6;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-semibold tracking-tight;
+    color: var(--color-text);
+  }
+  
+  h1 { @apply text-3xl md:text-4xl; }
+  h2 { @apply text-2xl md:text-3xl; }
+  h3 { @apply text-xl md:text-2xl; }
+  h4 { @apply text-lg; }
+  
+  p {
+    color: var(--color-text);
+    @apply leading-relaxed;
+  }
+  
+  *:focus-visible {
+    @apply outline-none ring-2 ring-offset-2;
+    --tw-ring-color: var(--color-primary);
+  }
+  
+  ::selection {
+    background-color: var(--color-primary-light);
+    color: var(--color-primary);
   }
 }
 
 @layer components {
+  /* ============================================
+     BUTTONS - Clean and professional
+     ============================================ */
+  
   .btn {
-    @apply px-4 py-2 rounded-lg font-medium transition-colors duration-200;
+    @apply inline-flex items-center justify-center gap-2
+           px-5 py-2.5 rounded-lg font-medium text-sm
+           transition-all duration-150 ease-out
+           focus:outline-none
+           disabled:opacity-50 disabled:cursor-not-allowed;
   }
   
+  /* Primary CTA - Deep teal with white text */
   .btn-primary {
-    @apply bg-primary-600 text-white hover:bg-primary-700;
+    background-color: var(--color-primary);
+    color: white;
   }
   
+  .btn-primary:hover:not(:disabled) {
+    background-color: var(--color-primary-hover);
+    box-shadow: var(--shadow-md);
+  }
+  
+  .btn-primary:active:not(:disabled) {
+    background-color: #1f484a;
+  }
+  
+  /* Secondary - Muted aqua accent */
   .btn-secondary {
-    @apply bg-gray-200 text-gray-800 hover:bg-gray-300;
+    background-color: var(--color-surface);
+    color: var(--color-text);
+    border: 1px solid var(--color-border);
   }
   
-  .btn-danger {
-    @apply bg-red-600 text-white hover:bg-red-700;
+  .btn-secondary:hover:not(:disabled) {
+    background-color: var(--color-neutral-light);
+    border-color: var(--color-border-strong);
   }
+  
+  .btn-secondary:active:not(:disabled) {
+    background-color: rgba(160, 161, 164, 0.12);
+  }
+  
+  /* Ghost button */
+  .btn-ghost {
+    background-color: transparent;
+    color: var(--color-text-light);
+  }
+  
+  .btn-ghost:hover:not(:disabled) {
+    background-color: var(--color-neutral-light);
+    color: var(--color-text);
+  }
+  
+  /* Accent link style */
+  .btn-link {
+    background-color: transparent;
+    color: var(--color-accent);
+    @apply px-0 py-0;
+  }
+  
+  .btn-link:hover:not(:disabled) {
+    color: var(--color-accent-hover);
+    text-decoration: underline;
+  }
+  
+  /* Danger */
+  .btn-danger {
+    @apply bg-red-600 text-white;
+  }
+  
+  .btn-danger:hover:not(:disabled) {
+    @apply bg-red-700;
+    box-shadow: var(--shadow-md);
+  }
+  
+  /* Size variants */
+  .btn-sm {
+    @apply px-3.5 py-2 text-sm;
+  }
+  
+  .btn-lg {
+    @apply px-6 py-3 text-base;
+  }
+  
+  .btn-icon {
+    @apply p-2.5;
+  }
+  
+  /* ============================================
+     CARDS - Subtle grey tints
+     ============================================ */
   
   .card {
-    @apply bg-white rounded-lg shadow-md p-6;
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+    box-shadow: var(--shadow-sm);
+    @apply rounded-xl p-6;
   }
   
-  .input {
-    @apply w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent;
+  .card-hover:hover {
+    box-shadow: var(--shadow-md);
+    border-color: var(--color-border-strong);
   }
+  
+  .card-muted {
+    background-color: var(--color-neutral-light);
+    border: 1px solid var(--color-neutral-border);
+    box-shadow: none;
+  }
+  
+  .card-header {
+    @apply -mx-6 -mt-6 px-6 py-4 mb-6 rounded-t-xl;
+    background-color: var(--color-neutral-light);
+    border-bottom: 1px solid var(--color-border);
+  }
+  
+  .card-title {
+    @apply text-lg font-semibold;
+    color: var(--color-text);
+  }
+  
+  .card-subtitle {
+    @apply text-sm mt-0.5;
+    color: var(--color-text-muted);
+  }
+  
+  /* ============================================
+     FORM ELEMENTS
+     ============================================ */
+  
+  .input {
+    @apply w-full px-4 py-2.5 rounded-lg transition-all duration-150;
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+    color: var(--color-text);
+  }
+  
+  .input::placeholder {
+    color: var(--color-text-muted);
+  }
+  
+  .input:hover {
+    border-color: var(--color-border-strong);
+  }
+  
+  .input:focus {
+    @apply outline-none ring-2;
+    border-color: var(--color-primary);
+    --tw-ring-color: var(--color-primary-light);
+  }
+  
+  .input-error {
+    border-color: #dc2626;
+  }
+  
+  .input-error:focus {
+    --tw-ring-color: #fef2f2;
+    border-color: #dc2626;
+  }
+  
+  .label {
+    @apply block text-sm font-medium mb-1.5;
+    color: var(--color-text);
+  }
+  
+  .input-group {
+    @apply space-y-1.5;
+  }
+  
+  .input-helper {
+    @apply text-sm mt-1;
+    color: var(--color-text-muted);
+  }
+  
+  /* Select styling */
+  .select {
+    @apply w-full px-4 py-2.5 rounded-lg transition-all duration-150 appearance-none cursor-pointer pr-10;
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+    color: var(--color-text);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%2354585B' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.75rem center;
+    background-size: 1.25rem 1.25rem;
+  }
+  
+  .select:hover {
+    border-color: var(--color-border-strong);
+  }
+  
+  .select:focus {
+    @apply outline-none ring-2;
+    border-color: var(--color-primary);
+    --tw-ring-color: var(--color-primary-light);
+  }
+  
+  /* ============================================
+     TABLES - Clean and readable
+     ============================================ */
   
   .table {
     @apply w-full border-collapse;
   }
   
   .table th {
-    @apply bg-gray-100 px-4 py-3 text-left text-sm font-semibold text-gray-700 border-b;
+    @apply px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider;
+    color: var(--color-text-muted);
+    background-color: var(--color-neutral-light);
+    border-bottom: 1px solid var(--color-border);
   }
   
   .table td {
-    @apply px-4 py-3 text-sm text-gray-600 border-b;
+    @apply px-5 py-4 text-sm;
+    color: var(--color-text);
+    border-bottom: 1px solid var(--color-border);
   }
   
-  .table tr:hover {
-    @apply bg-gray-50;
+  .table tbody tr {
+    @apply transition-colors duration-100;
   }
+  
+  .table tbody tr:hover {
+    background-color: var(--color-neutral-light);
+  }
+  
+  .table tbody tr:last-child td {
+    @apply border-b-0;
+  }
+  
+  /* ============================================
+     BADGES
+     ============================================ */
+  
+  .badge {
+    @apply inline-flex items-center px-2.5 py-0.5 text-xs font-medium rounded-full;
+  }
+  
+  .badge-primary {
+    background-color: var(--color-primary-light);
+    color: var(--color-primary);
+  }
+  
+  .badge-accent {
+    background-color: var(--color-accent-light);
+    color: var(--color-accent);
+  }
+  
+  .badge-secondary {
+    background-color: var(--color-neutral-light);
+    color: var(--color-text-light);
+  }
+  
+  .badge-success {
+    @apply bg-emerald-50 text-emerald-700;
+  }
+  
+  .badge-warning {
+    @apply bg-amber-50 text-amber-700;
+  }
+  
+  .badge-danger {
+    @apply bg-red-50 text-red-700;
+  }
+  
+  .badge-info {
+    @apply bg-blue-50 text-blue-700;
+  }
+  
+  /* ============================================
+     NAVIGATION
+     ============================================ */
+  
+  .nav-link {
+    @apply px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-150;
+    color: var(--color-text-light);
+  }
+  
+  .nav-link:hover {
+    background-color: var(--color-neutral-light);
+    color: var(--color-text);
+  }
+  
+  .nav-link-active {
+    background-color: var(--color-primary-light);
+    color: var(--color-primary);
+  }
+  
+  /* ============================================
+     MODALS
+     ============================================ */
+  
+  .modal-overlay {
+    @apply fixed inset-0 flex items-center justify-center z-50;
+    background-color: rgba(84, 88, 91, 0.5);
+    backdrop-filter: blur(2px);
+  }
+  
+  .modal {
+    background-color: var(--color-surface);
+    box-shadow: var(--shadow-lg);
+    @apply rounded-xl max-w-lg w-full mx-4;
+    animation: scaleIn 0.15s ease-out;
+  }
+  
+  .modal-lg {
+    @apply max-w-2xl;
+  }
+  
+  .modal-xl {
+    @apply max-w-4xl;
+  }
+  
+  .modal-header {
+    @apply px-6 py-5;
+    border-bottom: 1px solid var(--color-border);
+  }
+  
+  .modal-body {
+    @apply px-6 py-5;
+  }
+  
+  .modal-footer {
+    @apply px-6 py-4 rounded-b-xl flex items-center justify-end gap-3;
+    background-color: var(--color-neutral-light);
+  }
+  
+  /* ============================================
+     DROPDOWNS
+     ============================================ */
+  
+  .dropdown {
+    @apply absolute z-50 mt-2 py-2 min-w-[12rem] rounded-lg;
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+    box-shadow: var(--shadow-lg);
+    animation: slideDown 0.15s ease-out;
+  }
+  
+  .dropdown-item {
+    @apply block w-full px-4 py-2.5 text-left text-sm transition-colors duration-100;
+    color: var(--color-text);
+  }
+  
+  .dropdown-item:hover {
+    background-color: var(--color-neutral-light);
+  }
+  
+  .dropdown-divider {
+    @apply my-2;
+    border-top: 1px solid var(--color-border);
+  }
+  
+  /* ============================================
+     ALERTS
+     ============================================ */
+  
+  .alert {
+    @apply p-4 rounded-lg border;
+  }
+  
+  .alert-info {
+    @apply bg-blue-50 border-blue-100 text-blue-800;
+  }
+  
+  .alert-success {
+    @apply bg-emerald-50 border-emerald-100 text-emerald-800;
+  }
+  
+  .alert-warning {
+    @apply bg-amber-50 border-amber-100 text-amber-800;
+  }
+  
+  .alert-error {
+    @apply bg-red-50 border-red-100 text-red-800;
+  }
+  
+  /* ============================================
+     TABS
+     ============================================ */
+  
+  .tabs {
+    @apply flex gap-1 p-1 rounded-lg;
+    background-color: var(--color-neutral-light);
+  }
+  
+  .tab {
+    @apply px-4 py-2 rounded-md text-sm font-medium transition-colors duration-150;
+    color: var(--color-text-light);
+  }
+  
+  .tab:hover {
+    color: var(--color-text);
+  }
+  
+  .tab-active {
+    background-color: var(--color-surface);
+    color: var(--color-text);
+    box-shadow: var(--shadow-sm);
+  }
+  
+  /* Underline tabs */
+  .tabs-underline {
+    @apply flex gap-6;
+    border-bottom: 1px solid var(--color-border);
+  }
+  
+  .tab-underline {
+    @apply px-1 py-3 text-sm font-medium -mb-px transition-colors duration-150;
+    color: var(--color-text-muted);
+    border-bottom: 2px solid transparent;
+  }
+  
+  .tab-underline:hover {
+    color: var(--color-text);
+  }
+  
+  .tab-underline-active {
+    color: var(--color-primary);
+    border-color: var(--color-primary);
+  }
+  
+  /* ============================================
+     STATS
+     ============================================ */
+  
+  .stat-card {
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+    @apply rounded-xl p-6;
+  }
+  
+  .stat-label {
+    @apply text-sm font-medium mb-1;
+    color: var(--color-text-muted);
+  }
+  
+  .stat-value {
+    @apply text-3xl font-semibold;
+    color: var(--color-text);
+  }
+  
+  .stat-accent {
+    color: var(--color-primary);
+  }
+  
+  /* ============================================
+     PAGE LAYOUT
+     ============================================ */
+  
+  .page-header {
+    @apply mb-8;
+  }
+  
+  .page-title {
+    @apply text-2xl md:text-3xl font-semibold mb-1;
+    color: var(--color-text);
+  }
+  
+  .page-subtitle {
+    @apply text-base;
+    color: var(--color-text-muted);
+  }
+  
+  /* ============================================
+     LOADING STATES
+     ============================================ */
+  
+  .skeleton {
+    @apply animate-pulse rounded;
+    background-color: var(--color-neutral-light);
+  }
+  
+  .spinner {
+    @apply w-5 h-5 rounded-full animate-spin;
+    border: 2px solid var(--color-border);
+    border-top-color: var(--color-primary);
+  }
+  
+  /* ============================================
+     EMPTY STATES
+     ============================================ */
+  
+  .empty-state {
+    @apply py-12 text-center;
+  }
+  
+  .empty-state-icon {
+    @apply w-12 h-12 mx-auto mb-4;
+    color: var(--color-neutral);
+  }
+  
+  .empty-state-title {
+    @apply text-lg font-medium mb-1;
+    color: var(--color-text);
+  }
+  
+  .empty-state-description {
+    @apply mb-4;
+    color: var(--color-text-muted);
+  }
+  
+  /* ============================================
+     UTILITIES
+     ============================================ */
+  
+  .divider {
+    @apply my-6;
+    border-top: 1px solid var(--color-border);
+  }
+  
+  .section-title {
+    @apply text-xs font-semibold uppercase tracking-wider mb-3;
+    color: var(--color-text-muted);
+  }
+  
+  .link {
+    color: var(--color-accent);
+    @apply transition-colors duration-150;
+  }
+  
+  .link:hover {
+    color: var(--color-accent-hover);
+    text-decoration: underline;
+  }
+  
+  .text-muted {
+    color: var(--color-text-muted);
+  }
+  
+  .text-accent {
+    color: var(--color-accent);
+  }
+  
+  .text-primary {
+    color: var(--color-primary);
+  }
+}
+
+@layer utilities {
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-border-strong) transparent;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: var(--color-border-strong);
+    border-radius: 3px;
+  }
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.98); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+.animate-slide-up {
+  animation: slideUp 0.3s ease-out;
 }

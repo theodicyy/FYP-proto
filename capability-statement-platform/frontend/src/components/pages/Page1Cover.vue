@@ -42,8 +42,8 @@
 </template>
 
 <script setup>
-import partnershipLogo from '../../images/template/Wong_Partnership_Logo_HD_Transparent.png'
-import wLogo from '../../images/template/WongP_W_Logo_HD_Transparent.png'
+import partnershipLogo from '../../images/wongP_logo/Wong_Partnership_Logo_HD_Transparent.png'
+import wLogo from '../../images/wongP_logo/WongP_W_Logo_HD_Transparent.png'
 
 const props = defineProps({
   title: {

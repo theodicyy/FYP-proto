@@ -1,46 +1,75 @@
 <template>
-  <div>
-    <div class="flex justify-between items-center mb-6">
-      <h1 class="text-3xl font-bold">Lawyers Management</h1>
-      <button @click="showCreateModal = true" class="btn btn-primary">
-        + Add Lawyer
-      </button>
+  <div class="animate-fade-in">
+    <!-- Page Header -->
+    <div class="page-header">
+      <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+        <div>
+          <h1 class="page-title">Lawyers Management</h1>
+          <p class="page-subtitle">Add and manage lawyer profiles in the system</p>
+        </div>
+        <button @click="showCreateModal = true" class="btn btn-primary">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 4v16m8-8H4" />
+          </svg>
+          Add Lawyer
+        </button>
+      </div>
     </div>
 
-    <!-- Search and Filters -->
+    <!-- Filters -->
     <div class="card mb-6">
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div>
-          <label class="block text-sm font-medium mb-1">Search</label>
-          <input
-            v-model="searchQuery"
-            type="text"
-            placeholder="Search by name..."
-            class="input"
-            @input="filterLawyers"
-          />
+      <div class="flex flex-col lg:flex-row gap-4">
+        <div class="flex-1 input-group">
+          <label class="label">Search</label>
+          <div class="relative">
+            <span class="absolute inset-y-0 left-0 pl-4 flex items-center text-secondary-400">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </span>
+            <input
+              v-model="searchQuery"
+              type="text"
+              placeholder="Search by name or email..."
+              class="input pl-12"
+              @input="filterLawyers"
+            />
+          </div>
         </div>
-        <div>
-          <label class="block text-sm font-medium mb-1">Practice Group</label>
-          <select v-model="filterPracticeGroup" @change="filterLawyers" class="input">
-            <option value="">All</option>
+        <div class="w-full lg:w-48 input-group">
+          <label class="label">Practice Group</label>
+          <select v-model="filterPracticeGroup" @change="filterLawyers" class="select">
+            <option value="">All Groups</option>
             <option value="Corporate Law">Corporate Law</option>
             <option value="Intellectual Property">Intellectual Property</option>
             <option value="Litigation">Litigation</option>
           </select>
         </div>
         <div class="flex items-end">
-          <button @click="clearFilters" class="btn btn-secondary w-full">
-            Clear Filters
+          <button @click="clearFilters" class="btn btn-secondary">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+            Clear
           </button>
         </div>
       </div>
     </div>
 
-    <!-- Lawyers Table -->
+    <!-- Table -->
     <div class="card">
-      <div v-if="loading" class="text-center py-8">Loading...</div>
-      <div v-else>
+      <div v-if="loading" class="py-12 text-center">
+        <div class="spinner mx-auto mb-4"></div>
+        <p class="text-secondary-500">Loading lawyers...</p>
+      </div>
+      <div v-else-if="filteredLawyers.length === 0" class="empty-state">
+        <svg class="empty-state-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+        </svg>
+        <h3 class="empty-state-title">No lawyers found</h3>
+        <p class="empty-state-description">Add a lawyer to get started or adjust your filters.</p>
+      </div>
+      <div v-else class="overflow-x-auto">
         <table class="table">
           <thead>
             <tr>
@@ -49,30 +78,39 @@
               <th>Title</th>
               <th>Practice Group</th>
               <th>Experience</th>
-              <th>Actions</th>
+              <th class="text-right">Actions</th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="lawyer in filteredLawyers" :key="lawyer.id">
-              <td>{{ lawyer.first_name }} {{ lawyer.last_name }}</td>
-              <td>{{ lawyer.email || '-' }}</td>
-              <td>{{ lawyer.title || '-' }}</td>
-              <td>{{ lawyer.practice_group || '-' }}</td>
-              <td>{{ lawyer.years_experience ? `${lawyer.years_experience} years` : '-' }}</td>
               <td>
-                <div class="flex gap-2">
-                  <button @click="editLawyer(lawyer)" class="text-primary-600 hover:text-primary-800 text-sm">
-                    Edit
-                  </button>
-                  <button @click="confirmDelete(lawyer)" class="text-red-600 hover:text-red-800 text-sm">
-                    Delete
-                  </button>
+                <div class="flex items-center gap-3">
+                  <div class="w-9 h-9 rounded-full bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white text-xs font-medium">
+                    {{ lawyer.first_name?.[0] }}{{ lawyer.last_name?.[0] }}
+                  </div>
+                  <span class="font-medium text-secondary-900">{{ lawyer.first_name }} {{ lawyer.last_name }}</span>
                 </div>
               </td>
-            </tr>
-            <tr v-if="filteredLawyers.length === 0">
-              <td colspan="6" class="text-center py-8 text-gray-500">
-                No lawyers found
+              <td class="text-secondary-500">{{ lawyer.email || '-' }}</td>
+              <td>{{ lawyer.title || '-' }}</td>
+              <td>
+                <span v-if="lawyer.practice_group" class="badge badge-secondary">{{ lawyer.practice_group }}</span>
+                <span v-else class="text-secondary-400">-</span>
+              </td>
+              <td>{{ lawyer.years_experience ? `${lawyer.years_experience} yrs` : '-' }}</td>
+              <td>
+                <div class="flex items-center justify-end gap-2">
+                  <button @click="editLawyer(lawyer)" class="btn btn-ghost btn-sm text-primary-600">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                    </svg>
+                  </button>
+                  <button @click="confirmDelete(lawyer)" class="btn btn-ghost btn-sm text-red-600">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </button>
+                </div>
               </td>
             </tr>
           </tbody>
@@ -81,97 +119,111 @@
     </div>
 
     <!-- Create/Edit Modal -->
-    <div v-if="showCreateModal || editingLawyer" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div class="bg-white rounded-lg p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        <h3 class="text-xl font-semibold mb-4">
-          {{ editingLawyer ? 'Edit Lawyer' : 'Add New Lawyer' }}
-        </h3>
-        
-        <form @submit.prevent="saveLawyer" class="space-y-4">
-          <div class="grid grid-cols-2 gap-4">
-            <div>
-              <label class="block text-sm font-medium mb-1">First Name *</label>
-              <input v-model="lawyerForm.first_name" type="text" required class="input" />
+    <Teleport to="body">
+      <Transition name="modal">
+        <div v-if="showCreateModal || editingLawyer" class="modal-overlay" @click.self="closeModal">
+          <div class="modal modal-lg">
+            <div class="modal-header">
+              <h3 class="text-lg font-semibold text-secondary-900">
+                {{ editingLawyer ? 'Edit Lawyer' : 'Add New Lawyer' }}
+              </h3>
+              <button @click="closeModal" class="btn btn-ghost btn-sm">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
             </div>
-            <div>
-              <label class="block text-sm font-medium mb-1">Last Name *</label>
-              <input v-model="lawyerForm.last_name" type="text" required class="input" />
-            </div>
+            
+            <form @submit.prevent="saveLawyer">
+              <div class="modal-body space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                  <div class="input-group">
+                    <label class="label">First Name *</label>
+                    <input v-model="lawyerForm.first_name" type="text" required class="input" />
+                  </div>
+                  <div class="input-group">
+                    <label class="label">Last Name *</label>
+                    <input v-model="lawyerForm.last_name" type="text" required class="input" />
+                  </div>
+                </div>
+                
+                <div class="input-group">
+                  <label class="label">Email</label>
+                  <input v-model="lawyerForm.email" type="email" class="input" />
+                </div>
+                
+                <div class="grid grid-cols-2 gap-4">
+                  <div class="input-group">
+                    <label class="label">Title</label>
+                    <input v-model="lawyerForm.title" type="text" class="input" />
+                  </div>
+                  <div class="input-group">
+                    <label class="label">Practice Group</label>
+                    <input v-model="lawyerForm.practice_group" type="text" class="input" />
+                  </div>
+                </div>
+                
+                <div class="input-group">
+                  <label class="label">Years of Experience</label>
+                  <input v-model.number="lawyerForm.years_experience" type="number" min="0" class="input" />
+                </div>
+                
+                <div class="input-group">
+                  <label class="label">Bio</label>
+                  <textarea v-model="lawyerForm.bio" rows="3" class="input"></textarea>
+                </div>
+              </div>
+              
+              <div class="modal-footer">
+                <button type="button" @click="closeModal" class="btn btn-secondary">Cancel</button>
+                <button type="submit" class="btn btn-primary" :disabled="saving">
+                  {{ saving ? 'Saving...' : 'Save Lawyer' }}
+                </button>
+              </div>
+            </form>
           </div>
-          
-          <div>
-            <label class="block text-sm font-medium mb-1">Email</label>
-            <input v-model="lawyerForm.email" type="email" class="input" />
-          </div>
-          
-          <div class="grid grid-cols-2 gap-4">
-            <div>
-              <label class="block text-sm font-medium mb-1">Title</label>
-              <input v-model="lawyerForm.title" type="text" class="input" />
-            </div>
-            <div>
-              <label class="block text-sm font-medium mb-1">Practice Group</label>
-              <input v-model="lawyerForm.practice_group" type="text" class="input" />
-            </div>
-          </div>
-          
-          <div>
-            <label class="block text-sm font-medium mb-1">Years of Experience</label>
-            <input v-model.number="lawyerForm.years_experience" type="number" min="0" class="input" />
-          </div>
-          
-          <div>
-            <label class="block text-sm font-medium mb-1">Bio</label>
-            <textarea v-model="lawyerForm.bio" rows="3" class="input"></textarea>
-          </div>
-          
-          <div>
-            <label class="block text-sm font-medium mb-1">Source System</label>
-            <input v-model="lawyerForm.source_system" type="text" class="input" />
-          </div>
-          
-          <div class="flex gap-2 justify-end">
-            <button type="button" @click="closeModal" class="btn btn-secondary">
-              Cancel
-            </button>
-            <button type="submit" class="btn btn-primary" :disabled="saving">
-              {{ saving ? 'Saving...' : 'Save' }}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-
-    <!-- Delete Confirmation Modal -->
-    <div v-if="lawyerToDelete" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div class="bg-white rounded-lg p-6 max-w-md w-full">
-        <h3 class="text-xl font-semibold mb-4">Delete Lawyer</h3>
-        <p class="mb-4">
-          Are you sure you want to delete 
-          <strong>{{ lawyerToDelete.first_name }} {{ lawyerToDelete.last_name }}</strong>?
-        </p>
-        <p class="text-sm text-red-600 mb-4">
-          This action cannot be undone if the lawyer is referenced in deals or awards.
-        </p>
-        <div class="flex gap-2 justify-end">
-          <button @click="lawyerToDelete = null" class="btn btn-secondary">
-            Cancel
-          </button>
-          <button @click="deleteLawyer" class="btn btn-danger" :disabled="deleting">
-            {{ deleting ? 'Deleting...' : 'Delete' }}
-          </button>
         </div>
-      </div>
-    </div>
+      </Transition>
+    </Teleport>
+
+    <!-- Delete Modal -->
+    <Teleport to="body">
+      <Transition name="modal">
+        <div v-if="lawyerToDelete" class="modal-overlay" @click.self="lawyerToDelete = null">
+          <div class="modal">
+            <div class="modal-header">
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center text-red-600">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                </div>
+                <h3 class="text-lg font-semibold text-secondary-900">Delete Lawyer</h3>
+              </div>
+            </div>
+            <div class="modal-body">
+              <p class="text-secondary-700">
+                Are you sure you want to delete <strong>{{ lawyerToDelete.first_name }} {{ lawyerToDelete.last_name }}</strong>?
+              </p>
+              <p class="text-sm text-secondary-500 mt-2">This action cannot be undone.</p>
+            </div>
+            <div class="modal-footer">
+              <button @click="lawyerToDelete = null" class="btn btn-secondary">Cancel</button>
+              <button @click="deleteLawyer" class="btn btn-danger" :disabled="deleting">
+                {{ deleting ? 'Deleting...' : 'Delete' }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { useAuthStore } from '../../stores/authStore'
 import dataService from '../../services/dataService'
 
-const authStore = useAuthStore()
 const lawyers = ref([])
 const loading = ref(false)
 const saving = ref(false)
@@ -229,9 +281,7 @@ async function fetchLawyers() {
   }
 }
 
-function filterLawyers() {
-  // Filtering is handled by computed property
-}
+function filterLawyers() {}
 
 function clearFilters() {
   searchQuery.value = ''
@@ -271,13 +321,9 @@ async function saveLawyer() {
   saving.value = true
   try {
     if (editingLawyer.value) {
-      // Update
       await dataService.updateLawyer(editingLawyer.value.id, lawyerForm.value)
-      alert('Lawyer updated successfully!')
     } else {
-      // Create
       await dataService.createLawyer(lawyerForm.value)
-      alert('Lawyer created successfully!')
     }
     closeModal()
     await fetchLawyers()
@@ -298,7 +344,6 @@ async function deleteLawyer() {
   deleting.value = true
   try {
     await dataService.deleteLawyer(lawyerToDelete.value.id)
-    alert('Lawyer deleted successfully!')
     lawyerToDelete.value = null
     await fetchLawyers()
   } catch (error) {
@@ -308,3 +353,15 @@ async function deleteLawyer() {
   }
 }
 </script>
+
+<style scoped>
+.modal-enter-active, .modal-leave-active {
+  transition: all 0.3s ease;
+}
+.modal-enter-from, .modal-leave-to {
+  opacity: 0;
+}
+.modal-enter-from .modal, .modal-leave-to .modal {
+  transform: scale(0.95) translateY(10px);
+}
+</style>
