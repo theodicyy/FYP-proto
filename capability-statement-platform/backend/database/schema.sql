@@ -2,13 +2,6 @@
 -- Capability Statement Platform - Production Database Schema
 -- MySQL 8.0+
 -- ============================================================
--- 
--- SETUP INSTRUCTIONS:
--- 1. Create database in phpMyAdmin or MySQL CLI
--- 2. Import this file directly via phpMyAdmin SQL tab
--- 3. Default users will be created (change passwords in production!)
---
--- ============================================================
 
 CREATE DATABASE IF NOT EXISTS capability_statement_db;
 USE capability_statement_db;
@@ -17,7 +10,6 @@ USE capability_statement_db;
 -- USERS & AUTHENTICATION
 -- ============================================================
 
--- Users Table
 CREATE TABLE IF NOT EXISTS users (
     id INT AUTO_INCREMENT PRIMARY KEY,
     email VARCHAR(255) NOT NULL UNIQUE,
@@ -27,26 +19,20 @@ CREATE TABLE IF NOT EXISTS users (
     role_type ENUM('admin', 'associate') NOT NULL DEFAULT 'associate',
     is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    INDEX idx_email (email),
-    INDEX idx_role_type (role_type)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- User Sessions (token-based auth)
 CREATE TABLE IF NOT EXISTS user_sessions (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
     token VARCHAR(255) NOT NULL UNIQUE,
     expires_at TIMESTAMP NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    INDEX idx_token (token),
-    INDEX idx_user_id (user_id),
-    INDEX idx_expires_at (expires_at)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ============================================================
--- REFERENCE DATA: LAWYERS
+-- LAWYERS
 -- ============================================================
 
 CREATE TABLE IF NOT EXISTS lawyers (
@@ -60,24 +46,19 @@ CREATE TABLE IF NOT EXISTS lawyers (
     years_experience INT,
     source_system VARCHAR(50),
     deleted_at TIMESTAMP NULL,
-    deleted_by_user_id INT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    INDEX idx_practice_group (practice_group),
-    INDEX idx_source_system (source_system),
-    INDEX idx_deleted_at (deleted_at)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ============================================================
--- REFERENCE DATA: DEALS
+-- DEALS
 -- ============================================================
 
 CREATE TABLE IF NOT EXISTS deals (
     id INT AUTO_INCREMENT PRIMARY KEY,
     deal_name VARCHAR(255) NOT NULL,
     client_name VARCHAR(255),
-    deal_value DECIMAL(15, 2),
-    deal_currency VARCHAR(10) DEFAULT 'USD',
+    deal_value DECIMAL(15,2),
+    deal_currency VARCHAR(10),
     industry VARCHAR(100),
     practice_group VARCHAR(100),
     deal_year INT,
@@ -85,32 +66,22 @@ CREATE TABLE IF NOT EXISTS deals (
     deal_type VARCHAR(50),
     source_system VARCHAR(50),
     deleted_at TIMESTAMP NULL,
-    deleted_by_user_id INT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    INDEX idx_industry (industry),
-    INDEX idx_practice_group (practice_group),
-    INDEX idx_deal_year (deal_year),
-    INDEX idx_source_system (source_system),
-    INDEX idx_deleted_at (deleted_at)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Deal-Lawyer Relationship
 CREATE TABLE IF NOT EXISTS deal_lawyers (
     id INT AUTO_INCREMENT PRIMARY KEY,
     deal_id INT NOT NULL,
     lawyer_id INT NOT NULL,
     role VARCHAR(100),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (deal_id) REFERENCES deals(id) ON DELETE CASCADE,
-    FOREIGN KEY (lawyer_id) REFERENCES lawyers(id) ON DELETE CASCADE,
     UNIQUE KEY unique_deal_lawyer (deal_id, lawyer_id),
-    INDEX idx_deal_id (deal_id),
-    INDEX idx_lawyer_id (lawyer_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    FOREIGN KEY (deal_id) REFERENCES deals(id) ON DELETE CASCADE,
+    FOREIGN KEY (lawyer_id) REFERENCES lawyers(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ============================================================
--- REFERENCE DATA: AWARDS
+-- AWARDS
 -- ============================================================
 
 CREATE TABLE IF NOT EXISTS awards (
@@ -124,100 +95,31 @@ CREATE TABLE IF NOT EXISTS awards (
     description TEXT,
     source_system VARCHAR(50),
     deleted_at TIMESTAMP NULL,
-    deleted_by_user_id INT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    INDEX idx_award_year (award_year),
-    INDEX idx_practice_group (practice_group),
-    INDEX idx_industry (industry),
-    INDEX idx_source_system (source_system),
-    INDEX idx_deleted_at (deleted_at)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Award-Lawyer Relationship
 CREATE TABLE IF NOT EXISTS award_lawyers (
     id INT AUTO_INCREMENT PRIMARY KEY,
     award_id INT NOT NULL,
     lawyer_id INT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (award_id) REFERENCES awards(id) ON DELETE CASCADE,
-    FOREIGN KEY (lawyer_id) REFERENCES lawyers(id) ON DELETE CASCADE,
     UNIQUE KEY unique_award_lawyer (award_id, lawyer_id),
-    INDEX idx_award_id (award_id),
-    INDEX idx_lawyer_id (lawyer_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    FOREIGN KEY (award_id) REFERENCES awards(id) ON DELETE CASCADE,
+    FOREIGN KEY (lawyer_id) REFERENCES lawyers(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ============================================================
--- SIMPLE TEMPLATES (Text-based with placeholders)
+-- SIMPLE TEMPLATES (HTML + PLACEHOLDERS)
 -- ============================================================
 
 CREATE TABLE IF NOT EXISTS templates (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     description TEXT,
-    content TEXT NOT NULL,
-    deleted_at TIMESTAMP NULL,
-    deleted_by_user_id INT NULL,
+    content LONGTEXT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    INDEX idx_name (name),
-    INDEX idx_deleted_at (deleted_at)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- ============================================================
--- STRUCTURED TEMPLATES (Rich content with JSON structure)
--- ============================================================
-
--- Template Definitions (immutable structure)
-CREATE TABLE IF NOT EXISTS template_definitions (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(255) NOT NULL,
-    description TEXT,
-    template_type ENUM('simple', 'multipage') DEFAULT 'simple',
-    total_pages INT DEFAULT 1,
-    structure_json LONGTEXT NOT NULL COMMENT 'JSON schema defining template structure',
-    styles_json LONGTEXT COMMENT 'JSON schema defining template styles',
-    version INT DEFAULT 1,
-    is_active BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    INDEX idx_name (name),
-    INDEX idx_type (template_type),
-    INDEX idx_active (is_active)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- Template Content (editable content values)
-CREATE TABLE IF NOT EXISTS template_content (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    template_definition_id INT NOT NULL,
-    page_number INT NOT NULL,
-    section_id VARCHAR(100) NOT NULL COMMENT 'Identifier for section within page',
-    element_id VARCHAR(100) NOT NULL COMMENT 'Identifier for element within section',
-    content_type ENUM('text', 'html', 'data') DEFAULT 'text',
-    content_value LONGTEXT COMMENT 'Editable content value',
-    is_enabled BOOLEAN DEFAULT TRUE,
-    metadata JSON COMMENT 'Additional metadata for the content',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (template_definition_id) REFERENCES template_definitions(id) ON DELETE CASCADE,
-    INDEX idx_template_page (template_definition_id, page_number),
-    INDEX idx_section (template_definition_id, section_id),
-    UNIQUE KEY unique_content (template_definition_id, page_number, section_id, element_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- Template Versions (version history for rollback)
-CREATE TABLE IF NOT EXISTS template_versions (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    template_definition_id INT NOT NULL,
-    version_number INT NOT NULL,
-    structure_json LONGTEXT NOT NULL,
-    styles_json LONGTEXT,
-    created_by_user_id INT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (template_definition_id) REFERENCES template_definitions(id) ON DELETE CASCADE,
-    FOREIGN KEY (created_by_user_id) REFERENCES users(id) ON DELETE SET NULL,
-    INDEX idx_template_version (template_definition_id, version_number)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ============================================================
 -- CAPABILITY STATEMENTS
@@ -228,111 +130,106 @@ CREATE TABLE IF NOT EXISTS cap_statements (
     title VARCHAR(255) NOT NULL,
     description TEXT,
     status VARCHAR(50) DEFAULT 'draft',
-    created_by VARCHAR(100),
     created_by_user_id INT NULL,
-    template_id INT NULL COMMENT 'Can reference templates or template_definitions',
-    generated_content LONGTEXT NULL,
-    edited_content LONGTEXT NULL,
+    template_id INT NULL,
+    generated_content LONGTEXT,
+    edited_content LONGTEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (created_by_user_id) REFERENCES users(id) ON DELETE SET NULL,
-    INDEX idx_status (status),
-    INDEX idx_created_at (created_at),
-    INDEX idx_created_by_user_id (created_by_user_id),
-    INDEX idx_template_id (template_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    FOREIGN KEY (created_by_user_id) REFERENCES users(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Cap Statement Versions
 CREATE TABLE IF NOT EXISTS cap_statement_versions (
     id INT AUTO_INCREMENT PRIMARY KEY,
     cap_statement_id INT NOT NULL,
     version_number INT NOT NULL,
-    version_name VARCHAR(255) NULL,
+    version_name VARCHAR(255),
     content LONGTEXT NOT NULL,
     settings JSON,
-    selected_deal_ids JSON,
-    selected_award_ids JSON,
-    selected_lawyer_ids JSON,
-    created_by_user_id INT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (cap_statement_id) REFERENCES cap_statements(id) ON DELETE CASCADE,
-    FOREIGN KEY (created_by_user_id) REFERENCES users(id) ON DELETE SET NULL,
-    INDEX idx_cap_statement_id (cap_statement_id),
-    INDEX idx_version_number (version_number)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    FOREIGN KEY (cap_statement_id) REFERENCES cap_statements(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ============================================================
--- DEFAULT DATA
+-- DEFAULT USERS
 -- ============================================================
 
--- Default users (CHANGE PASSWORDS IN PRODUCTION!)
--- Admin password: admin123
--- Associate password: associate123
 INSERT INTO users (email, password_hash, first_name, last_name, role_type) VALUES
 ('admin@lawfirm.com', '$2b$10$IgnDq53RVBLdLvlMEqEV4uoGH7pv9NxPGjvzUNtiBcaYV2tzPKwx6', 'Admin', 'User', 'admin'),
 ('associate@lawfirm.com', '$2b$10$lHNjd8.21I2g9wT5JBylGuyatDnaRHgCk1xWWs6dwhvplaZjdpX7m', 'Associate', 'User', 'associate')
 ON DUPLICATE KEY UPDATE email=email;
 
--- Default simple templates
+-- ============================================================
+-- DEFAULT TEMPLATES (INCLUDING WONGP RICH HTML TEMPLATE)
+-- ============================================================
+
 INSERT INTO templates (name, description, content) VALUES
-('Standard Corporate Template', 'Standard template for corporate practice capability statements', 
-'CAPABILITY STATEMENT
-===================
+(
+'Standard Corporate Template',
+'Legacy corporate template',
+'{{lawyers}}{{deals}}{{awards}}Generated on {{date}}'
+),
+(
+'Focused Practice Template',
+'Legacy focused template',
+'{{lawyers}}{{deals}}{{awards}}Generated on {{date}}'
+),
+(
+'WongP Manual Input Template',
+'Wong Partnership – Manual UI Phase 1',
+'
+<div style="font-family: Times New Roman, serif; color:#000; line-height:1.6;">
 
-{{lawyers}}
+  <div style="text-align:center; margin-bottom:60px;">
+    <h1 style="font-size:32px; font-weight:bold;">CAPABILITY STATEMENT</h1>
+    <p style="font-size:18px;">{{client_name}}</p>
+    <p style="font-size:14px;">{{date}}</p>
+  </div>
 
-{{deals}}
+  <h2>INTRODUCTION</h2>
+  <p>
+    This capability statement is submitted by Wong Partnership LLP in response to
+    <strong>{{client_name}}</strong>
+    {{#if tender_number}}in relation to Tender No. {{tender_number}}{{/if}}.
+  </p>
 
-{{awards}}
+  <h2>MATTER OVERVIEW</h2>
+  <table border="1" cellpadding="8" cellspacing="0" width="100%">
+    <tr><td><strong>Document Type</strong></td><td>{{doc_type}}</td></tr>
+    <tr><td><strong>Matter Type</strong></td><td>{{matter_type}}</td></tr>
+    <tr><td><strong>Client Type</strong></td><td>{{client_type}}</td></tr>
+    <tr><td><strong>Main Practice Area</strong></td><td>{{main_practice_area}}</td></tr>
+  </table>
 
----
-Generated on: {{date}}
-'),
-('Focused Practice Template', 'Template focused on specific practice area',
-'PRACTICE OVERVIEW
-=================
+  <h2>DESCRIPTION OF MATTER</h2>
+  <p>{{matter_desc}}</p>
 
-Our team brings extensive experience in corporate transactions and regulatory matters.
+  <h2>SCOPE OF WORK</h2>
+  <p>{{scope_of_work}}</p>
+  <ul>{{scope_of_work_list}}</ul>
 
-{{lawyers}}
+  <h2>FEES & ASSUMPTIONS</h2>
+  <p><strong>Discount Rate:</strong> {{discount_rate}}</p>
+  <p>{{fee_assumptions}}</p>
 
-RECENT TRANSACTIONS
--------------------
+  {{#if highlights_track_record_bool}}
+  <h2>HIGHLIGHTS & TRACK RECORD</h2>
+  <p>[To be populated from marketing document]</p>
+  {{/if}}
 
-{{deals}}
+  <h2>OUR TEAM</h2>
+  <p><em>[From marketing document]</em></p>
 
-RECOGNITIONS
-------------
+  <h2>RELEVANT EXPERIENCE</h2>
+  <p><em>[From marketing document]</em></p>
 
-{{awards}}
+  <hr />
+  <p style="font-size:12px; text-align:center;">Generated on {{date}}</p>
 
----
-Generated on: {{date}}
-')
+</div>
+'
+)
 ON DUPLICATE KEY UPDATE name=name;
-
--- ============================================================
--- OPTIONAL: SAMPLE DATA FOR TESTING
--- Uncomment and run separately if needed for testing
--- ============================================================
-
-/*
--- Sample Lawyers
-INSERT INTO lawyers (first_name, last_name, email, practice_group, title, bio, years_experience, source_system) VALUES
-('John', 'Smith', 'john.smith@lawfirm.com', 'Corporate Law', 'Partner', 'Expert in M&A transactions with 20+ years of experience', 20, 'HRIS'),
-('Sarah', 'Johnson', 'sarah.johnson@lawfirm.com', 'Intellectual Property', 'Senior Associate', 'Specializes in patent law and IP litigation', 8, 'HRIS'),
-('Michael', 'Chen', 'michael.chen@lawfirm.com', 'Corporate Law', 'Partner', 'Leading expert in securities law and regulatory compliance', 18, 'HRIS');
-
--- Sample Deals
-INSERT INTO deals (deal_name, client_name, deal_value, deal_currency, industry, practice_group, deal_year, deal_description, deal_type, source_system) VALUES
-('TechCorp Acquisition', 'TechCorp Inc.', 500000000.00, 'USD', 'Technology', 'Corporate Law', 2023, 'Represented TechCorp in acquisition of competitor', 'M&A', 'DealTracker'),
-('PharmaCo IPO', 'PharmaCo Ltd.', 750000000.00, 'USD', 'Healthcare', 'Corporate Law', 2023, 'Led initial public offering for pharmaceutical company', 'IPO', 'DealTracker');
-
--- Sample Awards
-INSERT INTO awards (award_name, awarding_organization, award_year, category, practice_group, industry, description, source_system) VALUES
-('Lawyer of the Year - Corporate', 'Legal Excellence Awards', 2023, 'Individual', 'Corporate Law', 'General', 'Recognized for outstanding work in corporate transactions', 'AwardsDB'),
-('Top M&A Deal', 'M&A Magazine', 2023, 'Deal', 'Corporate Law', 'Technology', 'TechCorp Acquisition named top M&A deal of the year', 'AwardsDB');
-*/
 
 -- ============================================================
 -- END OF SCHEMA

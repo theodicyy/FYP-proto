@@ -5,6 +5,8 @@ import router from './router'
 import './assets/main.css'
 import { useAuthStore } from './stores/authStore'
 import { setAuthToken } from './services/dataService'
+import './assets/print.css'
+
 
 const app = createApp(App)
 

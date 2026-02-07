@@ -7,39 +7,52 @@ const api = axios.create({
   }
 })
 
-// Request interceptor - add auth token if available
+// ============================
+// Request interceptor
+// ============================
 api.interceptors.request.use(
   (config) => {
-    // Get token from localStorage
     const token = localStorage.getItem('authToken')
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
     }
     return config
   },
-  (error) => {
-    return Promise.reject(error)
-  }
+  (error) => Promise.reject(error)
 )
 
+// ============================
 // Response interceptor
+// ============================
 api.interceptors.response.use(
   (response) => {
+    /*
+      🔑 IMPORTANT:
+
+      If this is a blob (DOCX / PDF),
+      return full response so binary stays intact.
+    */
+    if (response.config.responseType === 'blob') {
+      return response
+    }
+
+    // Normal JSON responses
     return response.data
   },
   (error) => {
-    const message = error.response?.data?.error?.message || error.message || 'An error occurred'
-    
-    // Handle 401 Unauthorized - redirect to login
+    const message =
+      error.response?.data?.error?.message ||
+      error.message ||
+      'An error occurred'
+
     if (error.response?.status === 401) {
-      // Clear token from localStorage
       localStorage.removeItem('authToken')
-      // Redirect to login if not already there
+
       if (window.location.pathname !== '/login') {
         window.location.href = '/login'
       }
     }
-    
+
     return Promise.reject(new Error(message))
   }
 )

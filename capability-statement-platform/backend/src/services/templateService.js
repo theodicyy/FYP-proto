@@ -1,197 +1,169 @@
-import templateRepository from '../repositories/templateRepository.js';
-import { logger } from '../utils/logger.js';
+import templateRepository from '../repositories/templateRepository.js'
+import { logger } from '../utils/logger.js'
 
 class TemplateService {
+  // =====================================================
+  // CRUD
+  // =====================================================
+
   async getTemplates() {
     try {
-      const templates = await templateRepository.findAll();
-      logger.info('Retrieved templates', { count: templates.length });
-      return templates;
+      const templates = await templateRepository.findAll()
+      logger.info('Retrieved templates', { count: templates.length })
+      return templates
     } catch (error) {
-      logger.error('Error in template service', { error: error.message });
-      throw error;
+      logger.error('Error retrieving templates', { error: error.message })
+      throw error
     }
   }
 
   async getTemplateById(id) {
-    try {
-      const template = await templateRepository.findById(id);
-      if (!template) {
-        const error = new Error('Template not found');
-        error.statusCode = 404;
-        throw error;
-      }
-      return template;
-    } catch (error) {
-      logger.error('Error fetching template by ID in service', { error: error.message, id });
-      throw error;
+    const template = await templateRepository.findById(id)
+    if (!template) {
+      const error = new Error('Template not found')
+      error.statusCode = 404
+      throw error
     }
+    return template
   }
 
   async createTemplate(data) {
-    try {
-      if (!data.name || !data.content) {
-        const error = new Error('Template name and content are required');
-        error.statusCode = 400;
-        throw error;
-      }
-      const id = await templateRepository.create(data);
-      logger.info('Created template', { id, name: data.name });
-      return id;
-    } catch (error) {
-      logger.error('Error creating template in service', { error: error.message });
-      throw error;
+    if (!data.name || !data.content) {
+      const error = new Error('Template name and content are required')
+      error.statusCode = 400
+      throw error
     }
+    return templateRepository.create(data)
   }
 
   async updateTemplate(id, data) {
-    try {
-      const updated = await templateRepository.update(id, data);
-      if (!updated) {
-        const error = new Error('Template not found');
-        error.statusCode = 404;
-        throw error;
-      }
-      logger.info('Updated template', { id });
-      return updated;
-    } catch (error) {
-      logger.error('Error updating template in service', { error: error.message, id });
-      throw error;
+    const updated = await templateRepository.update(id, data)
+    if (!updated) {
+      const error = new Error('Template not found')
+      error.statusCode = 404
+      throw error
     }
+    return updated
   }
 
   async deleteTemplate(id) {
-    try {
-      const deleted = await templateRepository.delete(id);
-      if (!deleted) {
-        const error = new Error('Template not found');
-        error.statusCode = 404;
-        throw error;
-      }
-      logger.info('Deleted template', { id });
-      return deleted;
-    } catch (error) {
-      logger.error('Error deleting template in service', { error: error.message, id });
-      throw error;
+    const deleted = await templateRepository.delete(id)
+    if (!deleted) {
+      const error = new Error('Template not found')
+      error.statusCode = 404
+      throw error
     }
+    return deleted
   }
 
-  formatPlaceholder(placeholder, data) {
-    switch (placeholder) {
-      case '{{lawyers}}':
-        return this.formatLawyers(data.lawyers || []);
-      case '{{deals}}':
-        return this.formatDeals(data.deals || []);
-      case '{{awards}}':
-        return this.formatAwards(data.awards || []);
-      case '{{date}}':
-        return new Date().toLocaleDateString();
-      default:
-        return '';
+  // =====================================================
+  // LEGACY FORMATTERS (DO NOT REMOVE)
+  // =====================================================
+
+  formatLawyers(lawyers = []) {
+    if (!lawyers.length) return ''
+
+    let output = '<h2>OUR TEAM</h2>'
+    lawyers.forEach(l => {
+      output += `<p><strong>${l.first_name} ${l.last_name}</strong>`
+      if (l.title) output += `, ${l.title}`
+      output += '</p>'
+      if (l.practice_group) {
+        output += `<p>Practice Group: ${l.practice_group}</p>`
+      }
+      if (l.bio) {
+        output += `<p>${l.bio}</p>`
+      }
+    })
+
+    return output
+  }
+
+  formatDeals(deals = []) {
+    if (!deals.length) return ''
+
+    let output = '<h2>RECENT TRANSACTIONS</h2>'
+    deals.forEach(d => {
+      output += `<p><strong>${d.deal_name}</strong></p>`
+      if (d.client_name) output += `<p>Client: ${d.client_name}</p>`
+      if (d.deal_value) {
+        output += `<p>Value: ${d.deal_value}</p>`
+      }
+      if (d.deal_year) output += `<p>Year: ${d.deal_year}</p>`
+      if (d.deal_description) {
+        output += `<p>${d.deal_description}</p>`
+      }
+    })
+
+    return output
+  }
+
+  formatAwards(awards = []) {
+    if (!awards.length) return ''
+
+    let output = '<h2>RECOGNITIONS & AWARDS</h2>'
+    awards.forEach(a => {
+      output += `<p><strong>${a.award_name}</strong></p>`
+      if (a.awarding_organization) {
+        output += `<p>${a.awarding_organization}</p>`
+      }
+      if (a.award_year) output += `<p>Year: ${a.award_year}</p>`
+      if (a.description) output += `<p>${a.description}</p>`
+    })
+
+    return output
+  }
+
+  // =====================================================
+  // TEMPLATE POPULATION ENGINE (CORE)
+  // =====================================================
+
+populateTemplate(templateContent, data = {}) {
+  const normalizedData = {}
+  Object.entries(data).forEach(([k, v]) => {
+    normalizedData[k.toLowerCase()] = v
+  })
+
+  let output = templateContent
+
+  logger.debug('Populating template', {
+    dataKeys: Object.keys(normalizedData)
+  })
+
+  // 1️⃣ Conditionals
+  output = output.replace(
+   /{{#if\s+([\w_]+)\s*}}([\s\S]*?){{\s*\/if\s*}}/g,
+    (match, key, inner) => {
+      const val = normalizedData[key.toLowerCase()]
+      const truthy =
+        val === true ||
+        val === 'true' ||
+        val === 'on' ||
+        val === 1
+      return truthy ? inner : ''
     }
-  }
+  )
 
-  formatLawyers(lawyers) {
-    if (lawyers.length === 0) return '';
-    
-    let content = 'OUR TEAM\n';
-    content += '--------\n';
-    lawyers.forEach(lawyer => {
-      content += `${lawyer.first_name} ${lawyer.last_name}`;
-      if (lawyer.title) {
-        content += `, ${lawyer.title}`;
-      }
-      content += '\n';
-      if (lawyer.practice_group) {
-        content += `Practice Group: ${lawyer.practice_group}\n`;
-      }
-      if (lawyer.bio) {
-        content += `${lawyer.bio}\n`;
-      }
-      content += '\n';
-    });
-    return content;
-  }
+  // 2️⃣ Legacy placeholders
+  output = output.replace(/\{\{lawyers\}\}/g, this.formatLawyers(normalizedData.lawyers))
+  output = output.replace(/\{\{deals\}\}/g, this.formatDeals(normalizedData.deals))
+  output = output.replace(/\{\{awards\}\}/g, this.formatAwards(normalizedData.awards))
+  output = output.replace(/\{\{date\}\}/g, new Date().toLocaleDateString())
 
-  formatDeals(deals) {
-    if (deals.length === 0) return '';
-    
-    let content = 'RECENT TRANSACTIONS\n';
-    content += '------------------\n';
-    deals.forEach(deal => {
-      content += `${deal.deal_name}\n`;
-      if (deal.client_name) {
-        content += `Client: ${deal.client_name}\n`;
-      }
-      if (deal.deal_value) {
-        const formattedValue = new Intl.NumberFormat('en-US', {
-          style: 'currency',
-          currency: deal.deal_currency || 'USD',
-          minimumFractionDigits: 0
-        }).format(deal.deal_value);
-        content += `Value: ${formattedValue}\n`;
-      }
-      if (deal.deal_year) {
-        content += `Year: ${deal.deal_year}\n`;
-      }
-      if (deal.deal_description) {
-        content += `${deal.deal_description}\n`;
-      }
-      content += '\n';
-    });
-    return content;
-  }
+  // 3️⃣ Variables
+  Object.entries(normalizedData).forEach(([key, value]) => {
+    const safeValue =
+      value === null || value === undefined ? '' : String(value)
+    const regex = new RegExp(`{{\\s*${key}\\s*}}`, 'g')
+    output = output.replace(regex, safeValue)
+  })
 
-  formatAwards(awards) {
-    if (awards.length === 0) return '';
-    
-    let content = 'RECOGNITIONS & AWARDS\n';
-    content += '---------------------\n';
-    awards.forEach(award => {
-      content += `${award.award_name}\n`;
-      if (award.awarding_organization) {
-        content += `Awarded by: ${award.awarding_organization}\n`;
-      }
-      if (award.award_year) {
-        content += `Year: ${award.award_year}\n`;
-      }
-      if (award.description) {
-        content += `${award.description}\n`;
-      }
-      content += '\n';
-    });
-    return content;
-  }
+  // 4️⃣ Cleanup
+output = output.replace(/{{\s*\/if\s*}}/g, '')
 
-  populateTemplate(templateContent, data) {
-    let populatedContent = templateContent;
-    
-    // Log for debugging
-    logger.debug('Populating template with data', {
-      lawyersCount: data.lawyers?.length || 0,
-      dealsCount: data.deals?.length || 0,
-      awardsCount: data.awards?.length || 0
-    });
-    
-    // Replace placeholders - use global flag to replace all occurrences
-    const lawyersContent = this.formatPlaceholder('{{lawyers}}', data);
-    const dealsContent = this.formatPlaceholder('{{deals}}', data);
-    const awardsContent = this.formatPlaceholder('{{awards}}', data);
-    const dateContent = this.formatPlaceholder('{{date}}', data);
-    
-    populatedContent = populatedContent.replace(/\{\{lawyers\}\}/g, lawyersContent);
-    populatedContent = populatedContent.replace(/\{\{deals\}\}/g, dealsContent);
-    populatedContent = populatedContent.replace(/\{\{awards\}\}/g, awardsContent);
-    populatedContent = populatedContent.replace(/\{\{date\}\}/g, dateContent);
-    
-    logger.debug('Template populated', {
-      lawyersContentLength: lawyersContent.length,
-      dealsContentLength: dealsContent.length,
-      awardsContentLength: awardsContent.length
-    });
-    
-    return populatedContent;
-  }
+  return output
 }
 
-export default new TemplateService();
+}
+
+export default new TemplateService()

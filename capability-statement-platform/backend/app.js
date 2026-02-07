@@ -56,6 +56,7 @@ app.use('/uploads', express.static(path.join(__dirname, 'public', 'uploads')));
 
 // Routes
 app.use('/api/v1', routes);
+app.use('/generated', express.static('public/generated'))
 
 // Error handling
 app.use(notFoundHandler);

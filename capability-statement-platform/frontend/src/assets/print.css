@@ -1,0 +1,36 @@
+@media print {
+  body {
+    background: white;
+  }
+
+  .page-header,
+  .btn,
+  nav,
+  header {
+    display: none !important;
+  }
+
+  .document-preview {
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* Word-like margins */
+  @page {
+    size: A4;
+    margin: 2.5cm 2.5cm 2.5cm 2.5cm;
+  }
+
+  h1, h2, h3 {
+    page-break-after: avoid;
+  }
+
+  table {
+    page-break-inside: avoid;
+  }
+
+  p {
+    orphans: 3;
+    widows: 3;
+  }
+}
