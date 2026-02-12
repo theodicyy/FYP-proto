@@ -7,14 +7,7 @@
           <h1 class="page-title">Dashboard</h1>
           <p class="page-subtitle">Welcome back! Here's an overview of your capability statements.</p>
         </div>
-        <div class="page-actions">
-          <router-link to="/aggregation" class="btn btn-primary">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 4v16m8-8H4" />
-            </svg>
-            Create Statement
-          </router-link>
-        </div>
+
       </div>
     </div>
 
@@ -95,7 +88,7 @@
         
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <router-link 
-            to="/aggregation" 
+            to="/create" 
             class="group p-5 rounded-xl border border-secondary-200 hover:border-primary-300 hover:bg-primary-50/50 transition-all duration-200"
           >
             <div class="flex items-start gap-4">
@@ -194,9 +187,20 @@
             </div>
           </div>
           
-          <div class="flex gap-3">
+                    <div class="flex gap-3">
             <div class="w-8 h-8 rounded-full bg-primary-100 flex items-center justify-center text-primary-600 font-medium text-sm flex-shrink-0">
               3
+            </div>
+            <div>
+              <p class="text-sm font-medium text-secondary-900">Add document details</p>
+              <p class="text-xs text-secondary-500 mt-0.5">Enter the manual fields to complete the statement</p>
+            </div>
+          </div>
+          
+
+          <div class="flex gap-3">
+            <div class="w-8 h-8 rounded-full bg-primary-100 flex items-center justify-center text-primary-600 font-medium text-sm flex-shrink-0">
+              4
             </div>
             <div>
               <p class="text-sm font-medium text-secondary-900">Generate statement</p>
@@ -218,8 +222,8 @@
         </div>
 
         <div class="mt-6 pt-6 border-t border-secondary-100">
-          <router-link to="/aggregation" class="btn btn-primary w-full">
-            Start Creating
+          <router-link to="/aggregation" class="btn btn-primary btn-lg">
+          Start Creating
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
             </svg>

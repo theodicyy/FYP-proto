@@ -179,6 +179,17 @@ class AwardRepository {
       throw error;
     }
   }
+
+  async findByIds(ids = []) {
+  if (!ids.length) return []
+  const placeholders = ids.map(() => '?').join(',')
+  const query = `SELECT * FROM lawyers WHERE id IN (${placeholders})`
+  const [rows] = await pool.execute(query, ids)
+  return rows
 }
+
+}
+
+
 
 export default new AwardRepository();

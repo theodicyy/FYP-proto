@@ -8,33 +8,66 @@
       </p>
     </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- ================= SELECTED SUMMARY ================= -->
+    <div class="card mb-6">
+      <div class="card-header">
+        <h2 class="card-title">Selected Records</h2>
+        <p class="card-subtitle">You selected these on the aggregation page</p>
+      </div>
 
-      <!-- ================= TEMPLATE SELECTION (DUMMY UI) ================= -->
+      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div class="text-sm text-secondary-700">
+          <span class="font-medium">Lawyers:</span> {{ dataStore.selectedLawyers.length }} ·
+          <span class="font-medium">Deals:</span> {{ dataStore.selectedDeals.length }} ·
+          <span class="font-medium">Awards:</span> {{ dataStore.selectedAwards.length }}
+        </div>
+
+        <button class="btn btn-secondary" @click="router.push('/aggregation')">
+          Change selection
+        </button>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <!-- ================= TEMPLATE SELECTION ================= -->
       <div class="lg:col-span-1 card">
         <div class="card-header">
           <h2 class="card-title">Select Template</h2>
           <p class="card-subtitle">Choose a capability statement template</p>
         </div>
 
-        <div class="space-y-4">
+        <div class="space-y-3">
           <div
-            class="p-4 rounded-xl border-2 cursor-default border-primary-500 bg-primary-50/50"
+            v-for="t in templates"
+            :key="t.id"
+            class="p-4 rounded-xl border-2 cursor-pointer"
+            :class="flow.selectedTemplateId === t.id
+              ? 'border-primary-500 bg-primary-50/50'
+              : 'border-secondary-200 hover:border-secondary-300'"
+            @click="flow.setTemplateId(t.id)"
           >
             <div class="flex justify-between items-center">
               <div>
                 <h3 class="font-medium text-secondary-900">
-                  Wong Partnership Standard Template
+                  {{ t.name || t.title || 'Template' }}
                 </h3>
                 <p class="text-sm text-secondary-500">
-                  Official capability statement format
+                  {{ t.description || ' ' }}
                 </p>
               </div>
 
-              <span class="badge badge-primary">
+              <span v-if="flow.selectedTemplateId === t.id" class="badge badge-primary">
                 Selected
               </span>
             </div>
+          </div>
+
+          <div v-if="loadingTemplates" class="text-sm text-secondary-500">
+            Loading templates...
+          </div>
+
+          <div v-else-if="templates.length === 0" class="text-sm text-secondary-500">
+            No templates found.
           </div>
         </div>
       </div>
@@ -49,82 +82,79 @@
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <input v-model="capStore.manualFields.client_name" class="input" placeholder="Client Name" />
+          <input v-model="capStore.manualFields.client_shortname" class="input" placeholder="Client Short Name" />
 
-          <input v-model="manualFields.client_name" class="input" placeholder="Client Name" />
-          <input v-model="manualFields.client_shortname" class="input" placeholder="Client Short Name" />
+          <input type="date" v-model="capStore.manualFields.date" class="input" />
+          <input v-model="capStore.manualFields.tender_number" class="input" placeholder="Tender Number" />
 
-          <input type="date" v-model="manualFields.date" class="input" />
-          <input v-model="manualFields.tender_number" class="input" placeholder="Tender Number" />
-
-          <select v-model="manualFields.doc_type" class="select">
+          <select v-model="capStore.manualFields.doc_type" class="select">
             <option value="">Document Type</option>
             <option value="credential">Credential</option>
             <option value="proposal">Proposal</option>
           </select>
 
-          <select v-model="manualFields.matter_type" class="select">
+          <select v-model="capStore.manualFields.matter_type" class="select">
             <option value="">Matter Type</option>
             <option value="transaction">Transaction</option>
             <option value="project">Project</option>
           </select>
 
-          <select v-model="manualFields.client_type" class="select">
+          <select v-model="capStore.manualFields.client_type" class="select">
             <option value="">Client Type</option>
             <option value="business">Business</option>
             <option value="organisation">Organisation</option>
           </select>
 
           <input
-            v-model="manualFields.main_practice_area"
+            v-model="capStore.manualFields.main_practice_area"
             class="input"
             placeholder="Main Practice Area"
           />
 
           <textarea
-            v-model="manualFields.matter_desc"
+            v-model="capStore.manualFields.matter_desc"
             class="input md:col-span-2"
             rows="3"
             placeholder="Matter / Tender Description"
           ></textarea>
 
           <textarea
-            v-model="manualFields.scope_of_work"
+            v-model="capStore.manualFields.scope_of_work"
             class="input md:col-span-2"
             rows="3"
             placeholder="Scope of Work (Summary)"
           ></textarea>
 
           <textarea
-            v-model="manualFields.scope_of_work_list"
+            v-model="capStore.manualFields.scope_of_work_list"
             class="input md:col-span-2"
             rows="3"
             placeholder="Detailed Scope of Work"
           ></textarea>
 
           <input
-            v-model="manualFields.discount_rate"
+            v-model="capStore.manualFields.discount_rate"
             class="input"
             placeholder="Discount Rate"
           />
 
           <textarea
-            v-model="manualFields.fee_assumptions"
+            v-model="capStore.manualFields.fee_assumptions"
             class="input md:col-span-2"
             rows="3"
             placeholder="Fee Assumptions"
           ></textarea>
 
-          
-              <label class="flex items-center gap-2 md:col-span-2">
-                <input type="checkbox" v-model="manualFields.show_highlights" />
-                Include Highlights Section
-              </label>
+          <label class="flex items-center gap-2 md:col-span-2">
+            <input type="checkbox" v-model="capStore.manualFields.show_highlights" />
+            Include Highlights Section
+          </label>
 
-              <label class="flex items-center gap-2 md:col-span-2">
-                <input type="checkbox" v-model="manualFields.show_track_record" />
-                Include Track Record Section
-              </label>
-
+          <label class="flex items-center gap-2 md:col-span-2">
+            <input type="checkbox" v-model="capStore.manualFields.show_track_record" />
+            Include Track Record Section
+          </label>
         </div>
       </div>
     </div>
@@ -134,7 +164,7 @@
       <button
         @click="generateAndPreview"
         class="btn btn-primary btn-lg"
-        :disabled="capStore.loading"
+        :disabled="capStore.loading || !flow.selectedTemplateId"
       >
         <span v-if="capStore.loading">Generating...</span>
         <span v-else>Generate & Preview</span>
@@ -144,37 +174,62 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
+import { useCreateFlowStore } from '../stores/createFlowStore'
+import { useDataStore } from '../stores/dataStore'
 import { useCapStatementStore } from '../stores/capStatementStore'
+import dataService from '../services/dataService'
 
 const router = useRouter()
+const flow = useCreateFlowStore()
+const dataStore = useDataStore()
 const capStore = useCapStatementStore()
 
-const manualFields = ref({
-  client_name: '',
-  client_shortname: '',
-  date: '',
-  tender_number: '',
-  doc_type: '',
-  matter_type: '',
-  client_type: '',
-  matter_desc: '',
-  scope_of_work: '',
-  scope_of_work_list: '',
-  discount_rate: '',
-  main_practice_area: '',
-  fee_assumptions: '',
+const templates = ref([])
+const loadingTemplates = ref(false)
+const hasSelections = computed(() => dataStore.selectedCount > 0)
 
+onMounted(async () => {
+  // Require aggregation selections
+  if (!hasSelections.value) {
+    router.push('/aggregation')
+    return
+  }
 
+  loadingTemplates.value = true
+  try {
+    const res = await dataService.getTemplates()
+    templates.value = res.data?.data || res.data || []
+  } finally {
+    loadingTemplates.value = false
+  }
 
-show_highlights: false,
-show_track_record: false
+  // default template if none selected
+  if (!flow.selectedTemplateId && templates.value.length > 0) {
+    flow.setTemplateId(templates.value[0].id)
+  }
 })
 
 async function generateAndPreview() {
   try {
-    await capStore.generateStatement(manualFields.value)
+    if (!hasSelections.value) {
+      router.push('/aggregation')
+      return
+    }
+
+    await capStore.generateStatement({
+      templateId: flow.selectedTemplateId,
+      include: flow.include,
+      selectedIds: {
+        lawyerIds: dataStore.selectedLawyers.map(x => x.id),
+        dealIds: dataStore.selectedDeals.map(x => x.id),
+        awardIds: dataStore.selectedAwards.map(x => x.id)
+      },
+      // If backend receives { value: ... }, change to capStore.manualFields.value
+      manualFields: capStore.manualFields
+    })
+
     router.push('/preview')
   } catch (err) {
     alert('Error generating statement')

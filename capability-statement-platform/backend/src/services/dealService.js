@@ -13,30 +13,19 @@ class DealService {
     }
   }
 
-  async getDealById(id) {
+  async getDealsByIds(ids = []) {
     try {
-      const deal = await dealRepository.findById(id);
-      if (!deal) {
-        const error = new Error('Deal not found');
-        error.statusCode = 404;
-        throw error;
-      }
-      return deal;
+      const deals = await dealRepository.findByIds(ids);
+      logger.info('Retrieved deals by IDs', { count: deals.length, idsCount: ids.length });
+      return deals;
     } catch (error) {
-      logger.error('Error fetching deal by ID in service', { error: error.message, id });
+      logger.error('Error fetching deals by IDs in service', { error: error.message });
       throw error;
     }
   }
 
-  async getDealsByIds(ids) {
-    try {
-      const deals = await dealRepository.findByIds(ids);
-      return deals;
-    } catch (error) {
-      logger.error('Error fetching deals by IDs in service', { error: error.message, ids });
-      throw error;
-    }
-  }
+
+
 
   async createDeal(data) {
     try {

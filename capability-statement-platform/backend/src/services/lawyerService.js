@@ -13,20 +13,17 @@ class LawyerService {
     }
   }
 
-  async getLawyerById(id) {
+  async getLawyersByIds(ids = []) {
     try {
-      const lawyer = await lawyerRepository.findById(id);
-      if (!lawyer) {
-        const error = new Error('Lawyer not found');
-        error.statusCode = 404;
-        throw error;
-      }
-      return lawyer;
+      const lawyers = await lawyerRepository.findByIds(ids);
+      logger.info('Retrieved lawyers by IDs', { count: lawyers.length, idsCount: ids.length });
+      return lawyers;
     } catch (error) {
-      logger.error('Error fetching lawyer by ID in service', { error: error.message, id });
+      logger.error('Error fetching lawyers by IDs in service', { error: error.message });
       throw error;
     }
   }
+
 
   async getLawyersByDealId(dealId) {
     try {

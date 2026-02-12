@@ -13,30 +13,18 @@ class AwardService {
     }
   }
 
-  async getAwardById(id) {
+  async getAwardsByIds(ids = []) {
     try {
-      const award = await awardRepository.findById(id);
-      if (!award) {
-        const error = new Error('Award not found');
-        error.statusCode = 404;
-        throw error;
-      }
-      return award;
+      const awards = await awardRepository.findByIds(ids);
+      logger.info('Retrieved awards by IDs', { count: awards.length, idsCount: ids.length });
+      return awards;
     } catch (error) {
-      logger.error('Error fetching award by ID in service', { error: error.message, id });
+      logger.error('Error fetching awards by IDs in service', { error: error.message });
       throw error;
     }
   }
 
-  async getAwardsByIds(ids) {
-    try {
-      const awards = await awardRepository.findByIds(ids);
-      return awards;
-    } catch (error) {
-      logger.error('Error fetching awards by IDs in service', { error: error.message, ids });
-      throw error;
-    }
-  }
+
 
   async createAward(data) {
     try {

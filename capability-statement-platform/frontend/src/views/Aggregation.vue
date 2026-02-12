@@ -81,12 +81,9 @@
             <button @click="dataStore.clearSelections" class="btn btn-secondary btn-sm">
               Clear All
             </button>
-            <router-link to="/configuration" class="btn btn-primary btn-sm">
+            <button class="btn btn-primary btn-sm" @click="continueToConfig">
               Continue
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
-              </svg>
-            </router-link>
+            </button>
           </div>
         </div>
       </div>
@@ -317,6 +314,15 @@
 <script setup>
 import { ref, computed, onMounted, h } from 'vue'
 import { useDataStore } from '../stores/dataStore'
+import { useRouter } from 'vue-router'
+import { useCreateFlowStore } from '../stores/createFlowStore'
+const router = useRouter()
+const flow = useCreateFlowStore()
+
+function continueToConfig() {
+  console.log('Continue clicked. selectedCount=', dataStore.selectedCount)
+  router.push('/configuration')
+}
 
 const dataStore = useDataStore()
 const activeTab = ref('lawyers')

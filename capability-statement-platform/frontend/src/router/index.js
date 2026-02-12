@@ -15,6 +15,8 @@ import AdminAwards from '../views/admin/AwardsManagement.vue'
 import AdminTemplates from '../views/admin/TemplatesManagement.vue'
 
 import TemplatePreview from '../views/TemplatePreview.vue'
+import Aggregation from '../views/Aggregation.vue'
+import Create from '../views/Create.vue'
 
 const routes = [
   {
@@ -53,14 +55,12 @@ const routes = [
     component: Library,
     meta: { requiresAuth: true }
   },
-
-  /**
-   * Backward compatibility
-   * If any old links hit /aggregation, redirect safely
-   */
+  
   {
     path: '/aggregation',
-    redirect: '/configuration'
+    name: 'Aggregation',
+    component: Aggregation,
+    meta: { requiresAuth: true }
   },
 
   /**

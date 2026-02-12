@@ -238,15 +238,15 @@ export const dataService = {
    * - manual UI fields
    * - (future) parsed Word doc data
    */
-async generateStatement(manualFields) {
-  return api.post(
-    '/cap-statements/generate',
-    { manualFields },
-    {
-      responseType: 'blob'
-    }
-  )
-},
+  async generateStatement(payload) {
+    // payload should include manualFields at minimum (backend uses it today)
+    return api.post(
+      '/cap-statements/generate',
+      payload,
+      { responseType: 'blob' }
+    )
+  },
+
 
 
   async saveStatement(data) {

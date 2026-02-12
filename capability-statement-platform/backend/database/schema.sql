@@ -2,7 +2,9 @@
 -- Capability Statement Platform - Production Database Schema
 -- MySQL 8.0+
 -- ============================================================
-
+CREATE DATABASE IF NOT EXISTS lawyer_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE DATABASE IF NOT EXISTS deal_db   CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE DATABASE IF NOT EXISTS award_db  CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 CREATE DATABASE IF NOT EXISTS capability_statement_db;
 USE capability_statement_db;
 
@@ -31,86 +33,7 @@ CREATE TABLE IF NOT EXISTS user_sessions (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- ============================================================
--- LAWYERS
--- ============================================================
 
-CREATE TABLE IF NOT EXISTS lawyers (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    first_name VARCHAR(100) NOT NULL,
-    last_name VARCHAR(100) NOT NULL,
-    email VARCHAR(255),
-    practice_group VARCHAR(100),
-    title VARCHAR(100),
-    bio TEXT,
-    years_experience INT,
-    source_system VARCHAR(50),
-    deleted_at TIMESTAMP NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
--- ============================================================
--- DEALS
--- ============================================================
-
-CREATE TABLE IF NOT EXISTS deals (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    deal_name VARCHAR(255) NOT NULL,
-    client_name VARCHAR(255),
-    deal_value DECIMAL(15,2),
-    deal_currency VARCHAR(10),
-    industry VARCHAR(100),
-    practice_group VARCHAR(100),
-    deal_year INT,
-    deal_description TEXT,
-    deal_type VARCHAR(50),
-    source_system VARCHAR(50),
-    deleted_at TIMESTAMP NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
-CREATE TABLE IF NOT EXISTS deal_lawyers (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    deal_id INT NOT NULL,
-    lawyer_id INT NOT NULL,
-    role VARCHAR(100),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE KEY unique_deal_lawyer (deal_id, lawyer_id),
-    FOREIGN KEY (deal_id) REFERENCES deals(id) ON DELETE CASCADE,
-    FOREIGN KEY (lawyer_id) REFERENCES lawyers(id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
--- ============================================================
--- AWARDS
--- ============================================================
-
-CREATE TABLE IF NOT EXISTS awards (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    award_name VARCHAR(255) NOT NULL,
-    awarding_organization VARCHAR(255),
-    award_year INT,
-    category VARCHAR(100),
-    practice_group VARCHAR(100),
-    industry VARCHAR(100),
-    description TEXT,
-    source_system VARCHAR(50),
-    deleted_at TIMESTAMP NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
-CREATE TABLE IF NOT EXISTS award_lawyers (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    award_id INT NOT NULL,
-    lawyer_id INT NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE KEY unique_award_lawyer (award_id, lawyer_id),
-    FOREIGN KEY (award_id) REFERENCES awards(id) ON DELETE CASCADE,
-    FOREIGN KEY (lawyer_id) REFERENCES lawyers(id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
--- ============================================================
--- SIMPLE TEMPLATES (HTML + PLACEHOLDERS)
--- ============================================================
 
 CREATE TABLE IF NOT EXISTS templates (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -231,6 +154,110 @@ INSERT INTO templates (name, description, content) VALUES
 )
 ON DUPLICATE KEY UPDATE name=name;
 
--- ============================================================
--- END OF SCHEMA
--- ============================================================
+
+-- LAWYERS DB
+USE lawyer_db;
+CREATE TABLE IF NOT EXISTS lawyers (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  first_name VARCHAR(100) NOT NULL,
+  last_name  VARCHAR(100) NOT NULL,
+  email VARCHAR(255),
+  practice_group VARCHAR(100),
+  title VARCHAR(100),
+  bio TEXT,
+  years_experience INT,
+  lawyer_phone_nos TEXT,
+  lawyer_qualifications TEXT,
+  lawyer_admissions TEXT,
+  lawyer_designation TEXT,
+  lawyer_awards JSON,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- DEALS DB
+USE deal_db;
+CREATE TABLE IF NOT EXISTS deals (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  deal_name VARCHAR(255) NOT NULL,
+  client_name VARCHAR(255),
+  deal_value DECIMAL(15,2),
+  deal_currency VARCHAR(10),
+  industry VARCHAR(100),
+  practice_group VARCHAR(100),
+  deal_year INT,
+  deal_description TEXT,
+
+  publicity_purposes JSON,
+  confidentiality JSON,
+  deal_summary TEXT,
+  significant_features TEXT,
+  notability VARCHAR(255),
+  notable_reason TEXT,
+  acting_for VARCHAR(255),
+
+  parties_advised_coyname TEXT,
+  parties_advised_name TEXT,
+  parties_advised_designation TEXT,
+  parties_advised_telephone TEXT,
+  parties_advised_email TEXT,
+  industry_of_parties_advised TEXT,
+  business_desc_of_parties TEXT,
+
+  target_nationandbiz_desc TEXT,
+  acquiror_nationandbiz_desc TEXT,
+
+  deal_value_range VARCHAR(255),
+  currency VARCHAR(50),
+  deal_size DECIMAL(15,2),
+  is_cross_border VARCHAR(255),
+
+  target_name TEXT,
+  acquiror_name TEXT,
+  sellers_name TEXT,
+  investors_name TEXT,
+  lenders_name TEXT,
+
+  deal_date DATE,
+  signing_date DATE,
+  completion_date DATE,
+
+  referral VARCHAR(255),
+  referral_party TEXT,
+
+  transaction_types JSON,
+  srb_related VARCHAR(255),
+  pe_related VARCHAR(255),
+  startup_or_vc_related VARCHAR(255),
+  featured_other_areas TEXT,
+  jurisdiction TEXT,
+  deal_industry_t1 TEXT,
+  deal_industry_t2 TEXT,
+
+  remarks TEXT,
+  partner_approval VARCHAR(255),
+  partner_initial TEXT,
+
+  deal_pg JSON,
+  past_clients TEXT,
+
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- AWARDS DB
+USE award_db;
+CREATE TABLE IF NOT EXISTS awards (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  award_name VARCHAR(255) NOT NULL,
+  awarding_organization VARCHAR(255),
+  award_year INT,
+  category VARCHAR(100),
+  practice_group VARCHAR(100),
+  industry VARCHAR(100),
+  description TEXT,
+
+  award_pg JSON,
+  publications TEXT,
+  award_years DATE,
+
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
