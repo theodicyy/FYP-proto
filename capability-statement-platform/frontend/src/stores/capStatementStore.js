@@ -4,6 +4,10 @@ import dataService from '../services/dataService'
 
 export const useCapStatementStore = defineStore('capStatement', () => {
 
+  /* ======================
+     STATE
+  ====================== */
+
   const loading = ref(false)
   const error = ref(null)
 
@@ -11,41 +15,46 @@ export const useCapStatementStore = defineStore('capStatement', () => {
   const currentStatement = ref(null)
   const isEditing = ref(false)
 
-
   const lastDownloaded = ref(false)
   const generatedBlob = ref(null)
 
-  const manualFields = ref({
-    client_name: '',
-    client_shortname: '',
-    date: '',
-    tender_number: '',
-    doc_type: '',
-    matter_type: '',
-    client_type: '',
-    matter_desc: '',
-    scope_of_work: '',
-    scope_of_work_list: '',
-    discount_rate: '',
-    main_practice_area: '',
-    fee_assumptions: '',
-    show_highlights: false,
-    show_track_record: false
+ const manualFields = ref({
+  client_name: '',
+  client_shortname: '',
+  date: '',
+  tender_number: '',
+  doc_type: '',
+  matter_type: '',
+  client_type: '',
+  matter_desc: '',
+  scope_of_work: '',
+  scope_of_work_list: '',
+  discount_rate: '',
+  main_practice_area: '',
+  fee_assumptions: '',
 
-  })
+  // NEW
+  cross_border_bool: false,
+  practice_list: [],
+  lead_partners: [],
+  lawyer_roles: {},     // { lawyerId : "Head" }
+  most_rel_award: [],
+
+  show_highlights: false,
+  show_track_record: false
+})
+
+
+  /* ======================
+     FETCH LIBRARY
+  ====================== */
 
   async function fetchStatements(filters = {}) {
     loading.value = true
-    error.value = null
-
     try {
       const res = await dataService.getStatements(filters)
-      // backend sometimes returns { success:true, data:[...] }
-      statements.value = res.data?.data ?? res.data ?? []
+      statements.value = res?.data ?? res ?? []
       return statements.value
-    } catch (e) {
-      error.value = e
-      throw e
     } finally {
       loading.value = false
     }
@@ -54,14 +63,10 @@ export const useCapStatementStore = defineStore('capStatement', () => {
   async function fetchStatementById(id) {
     if (!id) return null
     loading.value = true
-    error.value = null
     try {
       const res = await dataService.getStatementById(id)
-      currentStatement.value = res.data?.data ?? res.data ?? null
+      currentStatement.value = res?.data ?? res ?? null
       return currentStatement.value
-    } catch (e) {
-      error.value = e
-      throw e
     } finally {
       loading.value = false
     }
@@ -75,61 +80,68 @@ export const useCapStatementStore = defineStore('capStatement', () => {
     isEditing.value = false
   }
 
-  function getFilenameFromDisposition(disposition) {
-  if (!disposition) return null
+  /* ======================
+     DOWNLOAD HELPER
+  ====================== */
 
-  // Handles: attachment; filename="Capability_Statement.docx"
-  const match = /filename\*?=(?:UTF-8'')?["']?([^"';]+)["']?/i.exec(disposition)
-  return match?.[1] ? decodeURIComponent(match[1]) : null
-}
-
-
-  function downloadBlob(blob, filename = 'capability-statement.docx') {
-  const url = window.URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename
-  document.body.appendChild(a)
-  a.click()
-  a.remove()
-  window.URL.revokeObjectURL(url)
-}
-
-async function generateStatement(payload) {
-    loading.value = true
-    error.value = null
-    lastDownloaded.value = false
-
-    try {
-      const response = await dataService.generateStatement(payload)
-
-      const contentType =
-        response.headers?.['content-type'] ||
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-
-      const filename =
-        getFilenameFromDisposition(response.headers?.['content-disposition']) ||
-        'Capability_Statement.docx'
-
-      const blob =
-        response.data instanceof Blob
-          ? response.data
-          : new Blob([response.data], { type: contentType })
-
-      generatedBlob.value = blob
-
-      // ✅ trigger download immediately
-      downloadBlob(blob, filename)
-      lastDownloaded.value = true
-
-      return blob
-    } catch (e) {
-      error.value = e
-      throw e
-    } finally {
-      loading.value = false
-    }
+  function downloadBlob(blob, filename = 'Capability_Statement.docx') {
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    window.URL.revokeObjectURL(url)
   }
+
+  /* ======================
+     GENERATE DOCX
+  ====================== */
+
+  async function generateStatement(payload) {
+  loading.value = true
+  error.value = null
+  lastDownloaded.value = false
+
+  try {
+    const response = await dataService.generateStatement(payload)
+
+    // 🔑 response.data IS ArrayBuffer now
+    console.log('ArrayBuffer size:', response.data.byteLength)
+
+    const blob = new Blob(
+      [response.data],
+      {
+        type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+      }
+    )
+
+    console.log('Blob size:', blob.size)
+
+    generatedBlob.value = blob
+
+    // Auto download
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'Capability_Statement.docx'
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    window.URL.revokeObjectURL(url)
+
+    lastDownloaded.value = true
+    return blob
+
+  } catch (e) {
+    error.value = e
+    throw e
+  } finally {
+    loading.value = false
+  }
+}
+
 
   return {
     // library
@@ -141,13 +153,13 @@ async function generateStatement(payload) {
     startEditing,
     cancelEditing,
 
-    // generate
+    // generation
     manualFields,
     generateStatement,
     generatedBlob,
     lastDownloaded,
 
-    // shared flags
+    // flags
     loading,
     error
   }

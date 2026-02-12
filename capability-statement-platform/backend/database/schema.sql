@@ -1,263 +1,282 @@
 -- ============================================================
--- Capability Statement Platform - Production Database Schema
+-- Capability Statement Platform - Unified Production Schema
 -- MySQL 8.0+
 -- ============================================================
-CREATE DATABASE IF NOT EXISTS lawyer_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-CREATE DATABASE IF NOT EXISTS deal_db   CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-CREATE DATABASE IF NOT EXISTS award_db  CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-CREATE DATABASE IF NOT EXISTS capability_statement_db;
+
+DROP DATABASE IF EXISTS capability_statement_db;
+CREATE DATABASE capability_statement_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE capability_statement_db;
 
 -- ============================================================
--- USERS & AUTHENTICATION
+-- USERS
 -- ============================================================
 
-CREATE TABLE IF NOT EXISTS users (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    email VARCHAR(255) NOT NULL UNIQUE,
-    password_hash VARCHAR(255) NOT NULL,
-    first_name VARCHAR(100),
-    last_name VARCHAR(100),
-    role_type ENUM('admin', 'associate') NOT NULL DEFAULT 'associate',
-    is_active BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE users (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  email VARCHAR(191) NOT NULL UNIQUE,
+  password_hash VARCHAR(255) NOT NULL,
+  first_name VARCHAR(100),
+  last_name VARCHAR(100),
+  role_type ENUM('admin','associate') DEFAULT 'associate',
+  is_active BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
 
-CREATE TABLE IF NOT EXISTS user_sessions (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT NOT NULL,
-    token VARCHAR(255) NOT NULL UNIQUE,
-    expires_at TIMESTAMP NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE user_sessions (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL,
+  token VARCHAR(191) NOT NULL UNIQUE,
+  expires_at TIMESTAMP NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
 
+-- ============================================================
+-- TEMPLATES
+-- ============================================================
 
-CREATE TABLE IF NOT EXISTS templates (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(255) NOT NULL,
-    description TEXT,
-    content LONGTEXT NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE templates (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  description TEXT,
+  content LONGTEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
 
 -- ============================================================
 -- CAPABILITY STATEMENTS
 -- ============================================================
 
-CREATE TABLE IF NOT EXISTS cap_statements (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    title VARCHAR(255) NOT NULL,
-    description TEXT,
-    status VARCHAR(50) DEFAULT 'draft',
-    created_by_user_id INT NULL,
-    template_id INT NULL,
-    generated_content LONGTEXT,
-    edited_content LONGTEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (created_by_user_id) REFERENCES users(id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
-CREATE TABLE IF NOT EXISTS cap_statement_versions (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    cap_statement_id INT NOT NULL,
-    version_number INT NOT NULL,
-    version_name VARCHAR(255),
-    content LONGTEXT NOT NULL,
-    settings JSON,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (cap_statement_id) REFERENCES cap_statements(id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
--- ============================================================
--- DEFAULT USERS
--- ============================================================
-
-INSERT INTO users (email, password_hash, first_name, last_name, role_type) VALUES
-('admin@lawfirm.com', '$2b$10$IgnDq53RVBLdLvlMEqEV4uoGH7pv9NxPGjvzUNtiBcaYV2tzPKwx6', 'Admin', 'User', 'admin'),
-('associate@lawfirm.com', '$2b$10$lHNjd8.21I2g9wT5JBylGuyatDnaRHgCk1xWWs6dwhvplaZjdpX7m', 'Associate', 'User', 'associate')
-ON DUPLICATE KEY UPDATE email=email;
-
--- ============================================================
--- DEFAULT TEMPLATES (INCLUDING WONGP RICH HTML TEMPLATE)
--- ============================================================
-
-INSERT INTO templates (name, description, content) VALUES
-(
-'Standard Corporate Template',
-'Legacy corporate template',
-'{{lawyers}}{{deals}}{{awards}}Generated on {{date}}'
-),
-(
-'Focused Practice Template',
-'Legacy focused template',
-'{{lawyers}}{{deals}}{{awards}}Generated on {{date}}'
-),
-(
-'WongP Manual Input Template',
-'Wong Partnership – Manual UI Phase 1',
-'
-<div style="font-family: Times New Roman, serif; color:#000; line-height:1.6;">
-
-  <div style="text-align:center; margin-bottom:60px;">
-    <h1 style="font-size:32px; font-weight:bold;">CAPABILITY STATEMENT</h1>
-    <p style="font-size:18px;">{{client_name}}</p>
-    <p style="font-size:14px;">{{date}}</p>
-  </div>
-
-  <h2>INTRODUCTION</h2>
-  <p>
-    This capability statement is submitted by Wong Partnership LLP in response to
-    <strong>{{client_name}}</strong>
-    {{#if tender_number}}in relation to Tender No. {{tender_number}}{{/if}}.
-  </p>
-
-  <h2>MATTER OVERVIEW</h2>
-  <table border="1" cellpadding="8" cellspacing="0" width="100%">
-    <tr><td><strong>Document Type</strong></td><td>{{doc_type}}</td></tr>
-    <tr><td><strong>Matter Type</strong></td><td>{{matter_type}}</td></tr>
-    <tr><td><strong>Client Type</strong></td><td>{{client_type}}</td></tr>
-    <tr><td><strong>Main Practice Area</strong></td><td>{{main_practice_area}}</td></tr>
-  </table>
-
-  <h2>DESCRIPTION OF MATTER</h2>
-  <p>{{matter_desc}}</p>
-
-  <h2>SCOPE OF WORK</h2>
-  <p>{{scope_of_work}}</p>
-  <ul>{{scope_of_work_list}}</ul>
-
-  <h2>FEES & ASSUMPTIONS</h2>
-  <p><strong>Discount Rate:</strong> {{discount_rate}}</p>
-  <p>{{fee_assumptions}}</p>
-
-  {{#if highlights_track_record_bool}}
-  <h2>HIGHLIGHTS & TRACK RECORD</h2>
-  <p>[To be populated from marketing document]</p>
-  {{/if}}
-
-  <h2>OUR TEAM</h2>
-  <p><em>[From marketing document]</em></p>
-
-  <h2>RELEVANT EXPERIENCE</h2>
-  <p><em>[From marketing document]</em></p>
-
-  <hr />
-  <p style="font-size:12px; text-align:center;">Generated on {{date}}</p>
-
-</div>
-'
-)
-ON DUPLICATE KEY UPDATE name=name;
-
-
--- LAWYERS DB
-USE lawyer_db;
-CREATE TABLE IF NOT EXISTS lawyers (
+CREATE TABLE cap_statements (
   id INT AUTO_INCREMENT PRIMARY KEY,
-  first_name VARCHAR(100) NOT NULL,
-  last_name  VARCHAR(100) NOT NULL,
-  email VARCHAR(255),
+  title VARCHAR(255),
+  description TEXT,
+  status VARCHAR(50) DEFAULT 'draft',
+  created_by_user_id INT,
+  template_id INT,
+  generated_content LONGTEXT,
+  edited_content LONGTEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+  FOREIGN KEY (created_by_user_id) REFERENCES users(id),
+  FOREIGN KEY (template_id) REFERENCES templates(id)
+) ENGINE=InnoDB;
+
+CREATE TABLE cap_statement_versions (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  cap_statement_id INT NOT NULL,
+  version_number INT,
+  version_name VARCHAR(255),
+  content LONGTEXT,
+  settings JSON,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+  FOREIGN KEY (cap_statement_id) REFERENCES cap_statements(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- ============================================================
+-- LAWYERS
+-- ============================================================
+
+CREATE TABLE lawyers (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+
+  first_name VARCHAR(100),
+  last_name VARCHAR(100),
+  email VARCHAR(191),
+
   practice_group VARCHAR(100),
   title VARCHAR(100),
+  designation VARCHAR(100),
+
+  phone TEXT,
+  qualifications TEXT,
+  admissions TEXT,
   bio TEXT,
   years_experience INT,
-  lawyer_phone_nos TEXT,
-  lawyer_qualifications TEXT,
-  lawyer_admissions TEXT,
-  lawyer_designation TEXT,
-  lawyer_awards JSON,
+
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB;
 
--- DEALS DB
-USE deal_db;
-CREATE TABLE IF NOT EXISTS deals (
+-- ============================================================
+-- DEALS
+-- ============================================================
+
+CREATE TABLE deals (
   id INT AUTO_INCREMENT PRIMARY KEY,
-  deal_name VARCHAR(255) NOT NULL,
-  client_name VARCHAR(255),
-  deal_value DECIMAL(15,2),
-  deal_currency VARCHAR(10),
-  industry VARCHAR(100),
-  practice_group VARCHAR(100),
-  deal_year INT,
-  deal_description TEXT,
 
-  publicity_purposes JSON,
-  confidentiality JSON,
+  deal_name VARCHAR(255),
+  client_name VARCHAR(255),
+
   deal_summary TEXT,
   significant_features TEXT,
-  notability VARCHAR(255),
+  notability ENUM('Yes','No'),
   notable_reason TEXT,
-  acting_for VARCHAR(255),
+  acting_for VARCHAR(50),
 
-  parties_advised_coyname TEXT,
-  parties_advised_name TEXT,
-  parties_advised_designation TEXT,
-  parties_advised_telephone TEXT,
-  parties_advised_email TEXT,
-  industry_of_parties_advised TEXT,
-  business_desc_of_parties TEXT,
-
-  target_nationandbiz_desc TEXT,
-  acquiror_nationandbiz_desc TEXT,
-
-  deal_value_range VARCHAR(255),
+  deal_value DECIMAL(15,2),
   currency VARCHAR(50),
-  deal_size DECIMAL(15,2),
-  is_cross_border VARCHAR(255),
 
-  target_name TEXT,
-  acquiror_name TEXT,
-  sellers_name TEXT,
-  investors_name TEXT,
-  lenders_name TEXT,
+  jurisdiction VARCHAR(100),
 
   deal_date DATE,
   signing_date DATE,
   completion_date DATE,
 
-  referral VARCHAR(255),
-  referral_party TEXT,
+  publicity_purposes JSON,
+  confidentiality JSON,
 
   transaction_types JSON,
-  srb_related VARCHAR(255),
-  pe_related VARCHAR(255),
-  startup_or_vc_related VARCHAR(255),
-  featured_other_areas TEXT,
-  jurisdiction TEXT,
-  deal_industry_t1 TEXT,
-  deal_industry_t2 TEXT,
-
-  remarks TEXT,
-  partner_approval VARCHAR(255),
-  partner_initial TEXT,
+  srb_related JSON,
+  pe_related JSON,
+  startup_or_vc_related JSON,
+  featured_other_areas JSON,
 
   deal_pg JSON,
   past_clients TEXT,
 
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+  remarks TEXT,
+  partner_approval ENUM('Yes','No'),
+  partner_initial VARCHAR(20),
 
--- AWARDS DB
-USE award_db;
-CREATE TABLE IF NOT EXISTS awards (
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+-- ============================================================
+-- AWARDS
+-- ============================================================
+
+CREATE TABLE awards (
   id INT AUTO_INCREMENT PRIMARY KEY,
-  award_name VARCHAR(255) NOT NULL,
+
+  award_name VARCHAR(255),
   awarding_organization VARCHAR(255),
   award_year INT,
   category VARCHAR(100),
-  practice_group VARCHAR(100),
-  industry VARCHAR(100),
-  description TEXT,
 
+  description TEXT,
   award_pg JSON,
   publications TEXT,
-  award_years DATE,
 
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB;
+
+-- ============================================================
+-- RELATION TABLES
+-- ============================================================
+
+CREATE TABLE deal_lawyers (
+  deal_id INT NOT NULL,
+  lawyer_id INT NOT NULL,
+  role ENUM('Partner','Senior Associate','Associate','Other'),
+
+  PRIMARY KEY (deal_id, lawyer_id),
+
+  FOREIGN KEY (deal_id) REFERENCES deals(id) ON DELETE CASCADE,
+  FOREIGN KEY (lawyer_id) REFERENCES lawyers(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE lawyer_awards (
+  lawyer_id INT NOT NULL,
+  award_id INT NOT NULL,
+
+  PRIMARY KEY (lawyer_id, award_id),
+
+  FOREIGN KEY (lawyer_id) REFERENCES lawyers(id) ON DELETE CASCADE,
+  FOREIGN KEY (award_id) REFERENCES awards(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE deal_awards (
+  deal_id INT NOT NULL,
+  award_id INT NOT NULL,
+
+  PRIMARY KEY (deal_id, award_id),
+
+  FOREIGN KEY (deal_id) REFERENCES deals(id) ON DELETE CASCADE,
+  FOREIGN KEY (award_id) REFERENCES awards(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- ============================================================
+-- INDEXES
+-- ============================================================
+
+CREATE INDEX idx_lawyer_name ON lawyers(last_name, first_name);
+CREATE INDEX idx_deal_name ON deals(deal_name);
+CREATE INDEX idx_award_name ON awards(award_name);
+-- ======================
+-- USERS
+-- ======================
+
+INSERT INTO users (email, password_hash, first_name, last_name, role_type)
+VALUES
+('admin@lawfirm.com', '$2b$10$IgnDq53RVBLdLvlMEqEV4uoGH7pv9NxPGjvzUNtiBcaYV2tzPKwx6', 'Admin', 'User', 'admin'),
+('associate@lawfirm.com', '$2b$10$lHNjd8.21I2g9wT5JBylGuyatDnaRHgCk1xWWs6dwhvplaZjdpX7m', 'Associate', 'User', 'associate')
+ON DUPLICATE KEY UPDATE email=email;
+
+-- ======================
+-- LAWYERS
+-- ======================
+
+INSERT INTO lawyers
+(first_name,last_name,email,practice_group,title,designation,phone,qualifications,admissions,bio,years_experience)
+VALUES
+('Jane','Tan','jane@firm.com','Corporate','Partner','Head Partner','91234567','LLB (NUS)','Singapore Bar','Corporate specialist',18),
+('Mark','Lim','mark@firm.com','Litigation','Partner','Co-Head','92345678','LLB (SMU)','Singapore Bar','Dispute resolution expert',15),
+('Alicia','Ng','alicia@firm.com','Corporate','Associate','Associate','93456789','LLB (NUS)','Singapore Bar','M&A lawyer',6),
+('Daniel','Koh','daniel@firm.com','Regulatory','Associate','Associate','94567890','LLB (SMU)','Singapore Bar','Regulatory advisory',5);
+
+-- ======================
+-- DEALS
+-- ======================
+
+INSERT INTO deals
+(deal_name,client_name,deal_summary,significant_features,acting_for,deal_value,currency,jurisdiction,deal_date)
+VALUES
+('Tech Acquisition','AlphaTech Pte Ltd','Advised on acquisition of SaaS company','Cross-border','Buyer',12000000,'USD','Singapore','2024-01-12'),
+('Healthcare Merger','HealthCorp Asia','Merger of regional healthcare providers','Complex restructuring','Seller',8000000,'USD','Singapore','2023-11-02'),
+('Manufacturing JV','SteelWorks Ltd','Joint venture for manufacturing expansion','JV structuring','JV Partner',5000000,'USD','Malaysia','2022-09-15');
+
+-- ======================
+-- AWARDS
+-- ======================
+
+INSERT INTO awards
+(award_name,awarding_organization,award_year,category,description)
+VALUES
+('Best Corporate Law Firm','Legal500',2024,'Corporate','Top ranked corporate team'),
+('Dispute Resolution Excellence','Chambers',2023,'Litigation','Outstanding litigation practice'),
+('Rising Star Firm','Asian Legal Business',2022,'General','Fast growing regional firm');
+
+-- ======================
+-- RELATION TABLES
+-- ======================
+
+-- Link lawyers to deals
+INSERT IGNORE INTO deal_lawyers (deal_id, lawyer_id, role)
+SELECT d.id, l.id, 'Partner'
+FROM deals d, lawyers l
+WHERE l.first_name IN ('Jane','Mark')
+LIMIT 2;
+
+-- Associate lawyers
+INSERT IGNORE INTO deal_lawyers (deal_id, lawyer_id, role)
+SELECT d.id, l.id, 'Associate'
+FROM deals d, lawyers l
+WHERE l.first_name IN ('Alicia','Daniel')
+LIMIT 2;
+
+-- Lawyer awards
+INSERT IGNORE INTO lawyer_awards (lawyer_id, award_id)
+SELECT l.id, a.id
+FROM lawyers l, awards a
+LIMIT 3;
+
+-- Deal awards
+INSERT IGNORE INTO deal_awards (deal_id, award_id)
+SELECT d.id, a.id
+FROM deals d, awards a
+LIMIT 3;

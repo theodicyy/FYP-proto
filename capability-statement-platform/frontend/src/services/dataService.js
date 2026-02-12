@@ -1,4 +1,5 @@
 import api from './api'
+import axios from 'axios'
 
 // ==========================
 // Auth Token Helper
@@ -238,14 +239,18 @@ export const dataService = {
    * - manual UI fields
    * - (future) parsed Word doc data
    */
-  async generateStatement(payload) {
-    // payload should include manualFields at minimum (backend uses it today)
-    return api.post(
-      '/cap-statements/generate',
-      payload,
-      { responseType: 'blob' }
-    )
-  },
+async generateStatement(payload) {
+  return axios.post(
+    '/api/v1/cap-statements/generate',
+    payload,
+    {
+      responseType: 'arraybuffer',   // 🔑 NOT blob
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem('authToken')}`
+      }
+    }
+  )
+},
 
 
 

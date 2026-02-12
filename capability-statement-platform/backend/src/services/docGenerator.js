@@ -34,13 +34,10 @@ class DocGenerator {
       lawyer1: data.lawyer1 || "Alicia Ng",
       lawyer2: data.lawyer2 || "Daniel Koh",
 
-      lawyer_desc1: data.lawyer_desc1 || "Partner – Corporate",
-      lawyer_desc2: data.lawyer_desc2 || "Partner – Disputes",
-      lawyer_desc3: data.lawyer_desc3 || "Associate – Corporate",
-      lawyer_desc4: data.lawyer_desc4 || "Associate – Regulatory",
+      lawyer_desc1: "Partner – Corporate",
+      lawyer_desc2: "Partner – Disputes",
 
-      awards_list: data.awards_list || "Awards Placeholder",
-      most_rel_award: data.most_rel_award || "Most Relevant Award",
+      awards_list: data.awards_list || "Test Award 2025",
 
       previous_summary: data.previous_summary || "Previous work summary",
       previous_transactions: data.previous_transactions || "Transaction summary",
@@ -72,7 +69,7 @@ class DocGenerator {
 
     console.log("Generated DOCX size:", buffer.length)
 
-    return buffer   // 🔑 RETURN BUFFER ONLY
+    return buffer
   }
 }
 
