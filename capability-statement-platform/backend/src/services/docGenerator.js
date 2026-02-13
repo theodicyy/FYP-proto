@@ -14,6 +14,13 @@ class DocGenerator {
   }
 
   generate(data = {}) {
+    if (!fs.existsSync(this.templatePath)) {
+      const err = new Error(
+        `Template file not found. Please add "Cap Statement Template V1.docx" to backend/src/template/ (expected path: ${this.templatePath})`
+      )
+      err.code = 'TEMPLATE_NOT_FOUND'
+      throw err
+    }
     const content = fs.readFileSync(this.templatePath, "binary")
 
     const zip = new PizZip(content)

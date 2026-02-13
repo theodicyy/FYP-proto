@@ -28,6 +28,15 @@ async generateStatement(req, res) {
       res.send(buffer)
     } catch (err) {
       console.error('Generate error:', err)
+      if (err.code === 'TEMPLATE_NOT_FOUND' || err.code === 'ENOENT') {
+        return res.status(503).json({
+          success: false,
+          error: {
+            code: 'TEMPLATE_NOT_FOUND',
+            message: err.code === 'TEMPLATE_NOT_FOUND' ? err.message : 'Word template file not found. Add "Cap Statement Template V1.docx" to backend/src/template/.'
+          }
+        })
+      }
       res.status(500).send('Failed to generate document')
     }
   }

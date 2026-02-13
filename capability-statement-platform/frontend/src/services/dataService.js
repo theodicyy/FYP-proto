@@ -240,16 +240,9 @@ export const dataService = {
    * - (future) parsed Word doc data
    */
 async generateStatement(payload) {
-  return axios.post(
-    '/api/v1/cap-statements/generate',
-    payload,
-    {
-      responseType: 'arraybuffer',   // 🔑 NOT blob
-      headers: {
-        Authorization: `Bearer ${localStorage.getItem('authToken')}`
-      }
-    }
-  )
+  return api.post('/cap-statements/generate', payload, {
+    responseType: 'arraybuffer'
+  })
 },
 
 

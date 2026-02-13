@@ -1,4 +1,4 @@
-import db from '../db/index.js'
+import pool from '../config/database.js'
 import docGenerator from './docGenerator.js'
 import { logger } from '../utils/logger.js'
 
@@ -46,15 +46,15 @@ class CapStatementService {
     // ========================
 
     const [lawyers] = lawyerIds.length
-      ? await db.query(`SELECT * FROM lawyers WHERE id IN (?)`, [lawyerIds])
+      ? await pool.query(`SELECT * FROM lawyers WHERE id IN (?)`, [lawyerIds])
       : [[]]
 
     const [deals] = dealIds.length
-      ? await db.query(`SELECT * FROM deals WHERE id IN (?)`, [dealIds])
+      ? await pool.query(`SELECT * FROM deals WHERE id IN (?)`, [dealIds])
       : [[]]
 
     const [awards] = awardIds.length
-      ? await db.query(`SELECT * FROM awards WHERE id IN (?)`, [awardIds])
+      ? await pool.query(`SELECT * FROM awards WHERE id IN (?)`, [awardIds])
       : [[]]
 
     logger.info('Aggregation counts', {

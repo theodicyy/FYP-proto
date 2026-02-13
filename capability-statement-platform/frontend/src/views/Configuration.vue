@@ -132,10 +132,15 @@
       </div>
     </div>
 
-    <div class="mt-6 flex justify-end">
-      <button class="btn btn-primary" @click="generate">
-        Generate
-      </button>
+    <div class="mt-6 flex flex-col gap-3">
+      <div v-if="capStore.error" class="p-3 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 text-sm">
+        {{ capStore.error.friendlyMessage || capStore.error.message || 'Generate failed' }}
+      </div>
+      <div class="flex justify-end">
+        <button class="btn btn-primary" @click="generate" :disabled="capStore.loading">
+          {{ capStore.loading ? 'Generating…' : 'Generate' }}
+        </button>
+      </div>
     </div>
 
   </div>
@@ -163,15 +168,19 @@ const practices = computed(() => {
 })
 
 async function generate() {
-  await capStore.generateStatement({
-    selectedIds: {
-      lawyerIds: lawyers.value.map(x => x.id),
-      dealIds: dataStore.selectedDeals.map(x => x.id),
-      awardIds: awards.value.map(x => x.id)
-    },
-    manualFields: capStore.manualFields
-  })
-
-  router.push('/preview')
+  capStore.error = null
+  try {
+    await capStore.generateStatement({
+      selectedIds: {
+        lawyerIds: lawyers.value.map(x => x.id),
+        dealIds: dataStore.selectedDeals.map(x => x.id),
+        awardIds: awards.value.map(x => x.id)
+      },
+      manualFields: capStore.manualFields
+    })
+    router.push('/preview')
+  } catch (_) {
+    // Error shown via capStore.error in template
+  }
 }
 </script>
