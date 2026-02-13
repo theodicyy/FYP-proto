@@ -27,7 +27,11 @@ async generateStatement(req, res) {
 
       res.send(buffer)
     } catch (err) {
-      console.error('Generate error:', err)
+      console.error('❌ Generate error:', err)
+      console.error('Error code:', err.code)
+      console.error('Error message:', err.message)
+      console.error('Error stack:', err.stack)
+      
       if (err.code === 'TEMPLATE_NOT_FOUND' || err.code === 'ENOENT') {
         return res.status(503).json({
           success: false,
@@ -37,7 +41,20 @@ async generateStatement(req, res) {
           }
         })
       }
-      res.status(500).send('Failed to generate document')
+      
+      // Return detailed error message for debugging
+      const errorMessage = err.message || 'Failed to generate document'
+      const errorCode = err.code || 'UNKNOWN_ERROR'
+      
+      console.error('Returning 500 error:', { code: errorCode, message: errorMessage })
+      
+      res.status(500).json({
+        success: false,
+        error: {
+          code: errorCode,
+          message: errorMessage
+        }
+      })
     }
   }
 

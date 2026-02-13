@@ -136,8 +136,8 @@ export const useCapStatementStore = defineStore('capStatement', () => {
 
   } catch (e) {
     error.value = e
-    // Backend may return 503 + JSON for template-not-found (we use responseType: 'arraybuffer' so body is ArrayBuffer)
-    if (e.response?.status === 503 && e.response?.data) {
+    // Backend may return 503 or 500 + JSON for errors (we use responseType: 'arraybuffer' so body is ArrayBuffer)
+    if ((e.response?.status === 503 || e.response?.status === 500) && e.response?.data) {
       try {
         const raw = e.response.data instanceof ArrayBuffer
           ? new TextDecoder().decode(e.response.data)
@@ -145,11 +145,15 @@ export const useCapStatementStore = defineStore('capStatement', () => {
         const body = typeof raw === 'string' ? JSON.parse(raw) : raw
         if (body?.error?.message) {
           e.friendlyMessage = body.error.message
+          console.error('Backend error:', body.error)
         }
-      } catch (_) {}
+      } catch (parseError) {
+        console.warn('Could not parse error response:', parseError)
+      }
     }
+    // Fallback to generic message if no friendly message was set
     if (!e.friendlyMessage && e.response?.status === 500) {
-      e.friendlyMessage = 'Server error while generating the document. Check that the Word template is in backend/src/template/.'
+      e.friendlyMessage = 'Server error while generating the document. Check server logs for details.'
     }
     throw e
   } finally {

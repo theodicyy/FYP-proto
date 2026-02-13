@@ -92,6 +92,7 @@ CREATE TABLE lawyers (
   practice_group VARCHAR(100),
   title VARCHAR(100),
   designation VARCHAR(100),
+  lawyer_designation VARCHAR(255),
 
   phone TEXT,
   qualifications TEXT,
@@ -222,12 +223,12 @@ ON DUPLICATE KEY UPDATE email=email;
 -- ======================
 
 INSERT INTO lawyers
-(first_name,last_name,email,practice_group,title,designation,phone,qualifications,admissions,bio,years_experience)
+(first_name,last_name,email,practice_group,title,designation,lawyer_designation,phone,qualifications,admissions,bio,years_experience)
 VALUES
-('Jane','Tan','jane@firm.com','Corporate','Partner','Head Partner','91234567','LLB (NUS)','Singapore Bar','Corporate specialist',18),
-('Mark','Lim','mark@firm.com','Litigation','Partner','Co-Head','92345678','LLB (SMU)','Singapore Bar','Dispute resolution expert',15),
-('Alicia','Ng','alicia@firm.com','Corporate','Associate','Associate','93456789','LLB (NUS)','Singapore Bar','M&A lawyer',6),
-('Daniel','Koh','daniel@firm.com','Regulatory','Associate','Associate','94567890','LLB (SMU)','Singapore Bar','Regulatory advisory',5);
+('Jane','Tan','jane@firm.com','Corporate','Partner','Head Partner','Corporate Law','91234567','LLB (NUS)','Singapore Bar','Corporate specialist',18),
+('Mark','Lim','mark@firm.com','Litigation','Partner','Co-Head','Dispute Resolution','92345678','LLB (SMU)','Singapore Bar','Dispute resolution expert',15),
+('Alicia','Ng','alicia@firm.com','Corporate','Associate','Associate','M&A Specialist','93456789','LLB (NUS)','Singapore Bar','M&A lawyer',6),
+('Daniel','Koh','daniel@firm.com','Regulatory','Associate','Associate','Regulatory Compliance','94567890','LLB (SMU)','Singapore Bar','Regulatory advisory',5);
 
 -- ======================
 -- DEALS
