@@ -89,7 +89,7 @@ class TemplateService {
       if (d.deal_value) {
         output += `<p>Value: ${d.deal_value}</p>`
       }
-      if (d.deal_year) output += `<p>Year: ${d.deal_year}</p>`
+      if (d.deal_date) output += `<p>Year: ${d.deal_date}</p>`
       if (d.deal_description) {
         output += `<p>${d.deal_description}</p>`
       }

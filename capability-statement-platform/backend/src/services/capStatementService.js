@@ -4,11 +4,11 @@ import { logger } from '../utils/logger.js'
 
 class CapStatementService {
 
-  /**
-   * =====================================================
-   * MAIN GENERATION ENTRY
-   * =====================================================
-   */
+  /*
+  =====================================================
+  MAIN ENTRY
+  =====================================================
+  */
   async generateFullStatement(payload = {}) {
     try {
       logger.info('generateFullStatement payload received')
@@ -18,7 +18,6 @@ class CapStatementService {
 
       const data = await this.buildTemplatePayload(manualFields, selectedIds)
 
-      // Generate DOCX
       return docGenerator.generate(data)
 
     } catch (error) {
@@ -30,20 +29,16 @@ class CapStatementService {
     }
   }
 
-  /**
-   * =====================================================
-   * BUILD DOCXTEMPLATER PAYLOAD
-   * =====================================================
-   */
+  /*
+  =====================================================
+  BUILD DOCX PAYLOAD
+  =====================================================
+  */
   async buildTemplatePayload(manualFields = {}, selectedIds = {}) {
 
     const lawyerIds = selectedIds.lawyerIds || []
     const dealIds = selectedIds.dealIds || []
     const awardIds = selectedIds.awardIds || []
-
-    // ========================
-    // FETCH DATABASE RECORDS
-    // ========================
 
     const [lawyers] = lawyerIds.length
       ? await db.query(`SELECT * FROM lawyers WHERE id IN (?)`, [lawyerIds])
@@ -63,66 +58,84 @@ class CapStatementService {
       awards: awards.length
     })
 
-    // ========================
-    // LAWYERS
-    // ========================
+    // ================= LAWYERS =================
 
-    const lawyerNames = lawyers.map(l => `${l.first_name} ${l.last_name}`)
+    const partner1 = lawyers[0]
+    const partner2 = lawyers[1]
 
-    const lead_partners = lawyerNames.slice(0, 2).join(', ') || 'Jane Tan, Mark Lim'
+    // ================= DEALS =================
 
-    const partner1 = lawyerNames[0] || 'Jane Tan'
-    const partner2 = lawyerNames[1] || 'Mark Lim'
+    const d1 = deals[0]
+    const d2 = deals[1]
+    const d3 = deals[2]
+    const d4 = deals[3]
 
-    // ========================
-    // DEALS
-    // ========================
+    // ================= AWARDS =================
 
-    const dealSummaries = deals.map(d => d.deal_summary).filter(Boolean)
-
-    const previous_summary =
-      dealSummaries.join('\n') || 'Previous work summary'
-
-    const previous_transactions =
-      dealSummaries.join('\n') || 'Transaction summary'
-
-    const previous_client1 = deals[0]?.client_name || 'Test Client A'
-    const previous_client2 = deals[1]?.client_name || 'Test Client B'
-
-    // ========================
-    // AWARDS
-    // ========================
-
-    const awards_list =
-      awards.map(a => `${a.award_name} – ${a.awarding_organization} (${a.award_year})`).join('\n') ||
-      'Test Award 2025'
-
-    // ========================
-    // FINAL PAYLOAD
-    // ========================
+    const a1 = awards[0]
+    const a2 = awards[1]
+    const a3 = awards[2]
 
     return {
       ...manualFields,
 
-      lead_partners,
+      // ===== Lawyers =====
 
-      partner1,
-      partner2,
+      lead_partners: [partner1, partner2].filter(Boolean).map(l => `${l.first_name} ${l.last_name}`).join(', ') || 'Jane Tan, Mark Lim',
 
-      lawyer1: partner1,
-      lawyer2: partner2,
+      partner1: partner1 ? `${partner1.first_name} ${partner1.last_name}` : 'Jane Tan',
+      partner2: partner2 ? `${partner2.first_name} ${partner2.last_name}` : 'Mark Lim',
 
-      previous_summary,
-      previous_transactions,
+      lawyer_desc1: partner1?.designation || 'Partner – Corporate',
+      lawyer_desc2: partner2?.designation || 'Partner – Disputes',
 
-      previous_client1,
-      previous_client2,
+      lawyer_pg1: partner1?.practice_group || 'Corporate',
+      lawyer_pg2: partner2?.practice_group || 'Disputes',
 
-      awards_list
+      qualification1: partner1?.qualifications || 'LLB',
+      admission1: partner1?.admissions || 'Singapore Bar',
+
+      email1: partner1?.email || 'test@lawfirm.com',
+      phone_number1: partner1?.phone || '12345678',
+
+      // ===== Deals =====
+
+      deals_pg1: d1?.deal_pg || 'M&A',
+      deals_pg2: d2?.deal_pg || 'Regulatory',
+      deals_pg3: d3?.deal_pg || 'Litigation',
+
+      deals_desc1: d1?.deal_summary || 'Test Deal 1',
+      deals_desc2: d2?.deal_summary || 'Test Deal 2',
+      deals_desc3: d3?.deal_summary || 'Test Deal 3',
+      deals_desc4: d4?.deal_summary || 'Test Deal 4',
+
+      client_name1: d1?.client_name || 'Test Client 1',
+      client_name2: d2?.client_name || 'Test Client 2',
+      client_name3: d3?.client_name || 'Test Client 3',
+
+      previous_client1: d1?.client_name || 'Client A',
+      previous_client2: d2?.client_name || 'Client B',
+
+      previous_summary: deals.map(d => d.deal_summary).filter(Boolean).join('\n') || 'Previous work summary',
+      previous_transactions: deals.map(d => d.deal_summary).filter(Boolean).join('\n') || 'Transaction summary',
+
+      // ===== Awards =====
+
+      award_pg1: a1?.award_pg || 'Corporate',
+      award_pg2: a2?.award_pg || 'Disputes',
+      award_pg3: a3?.award_pg || 'Regulatory',
+
+      award_name: a1?.award_name || 'Test Award',
+      legal_pub: a1?.publications || 'Legal 500',
+      year: a1?.award_year || '2025',
+
+      awards_list:
+        awards.map(a => `${a.award_name} – ${a.awarding_organization} (${a.award_year})`).join('\n')
+        || 'Test Award 2025'
     }
   }
 
-  // legacy stubs so nothing crashes elsewhere
+  // stubs
   async getStatements() { return [] }
   async getStatementById() { return null }
 

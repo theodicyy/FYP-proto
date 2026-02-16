@@ -232,7 +232,7 @@
               <td>
                 <span class="font-medium text-emerald-600">{{ formatCurrency(deal.deal_value, deal.deal_currency) }}</span>
               </td>
-              <td>{{ deal.deal_year }}</td>
+              <td>{{ deal.deal_date }}</td>
               <td>
                 <span class="badge badge-info">{{ deal.industry }}</span>
               </td>
@@ -416,7 +416,7 @@ function applyFilters() {
   dataStore.updateFilters({
     practice_group: localFilters.value.practice_group || null,
     industry: localFilters.value.industry || null,
-    deal_year: localFilters.value.year || null,
+    deal_date: localFilters.value.year || null,
     award_year: localFilters.value.year || null
   })
   
@@ -438,7 +438,7 @@ function clearFilters() {
   dataStore.updateFilters({
     practice_group: null,
     industry: null,
-    deal_year: null,
+    deal_date: null,
     award_year: null
   })
   applyFilters()
