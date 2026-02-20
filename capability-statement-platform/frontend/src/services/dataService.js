@@ -67,7 +67,7 @@ export const dataService = {
     const params = new URLSearchParams()
     if (filters.industry) params.append('industry', filters.industry)
     if (filters.practice_group) params.append('practice_group', filters.practice_group)
-    if (filters.deal_date) params.append('deal_date', filters.deal_date)
+    if (filters.deal_year) params.append('deal_year', filters.deal_year)
     if (filters.source_system) params.append('source_system', filters.source_system)
 
     const queryString = params.toString()
@@ -240,16 +240,9 @@ export const dataService = {
    * - (future) parsed Word doc data
    */
 async generateStatement(payload) {
-  return axios.post(
-    '/api/v1/cap-statements/generate',
-    payload,
-    {
-      responseType: 'arraybuffer',   // 🔑 NOT blob
-      headers: {
-        Authorization: `Bearer ${localStorage.getItem('authToken')}`
-      }
-    }
-  )
+  return api.post('/cap-statements/generate', payload, {
+    responseType: 'arraybuffer'
+  })
 },
 
 

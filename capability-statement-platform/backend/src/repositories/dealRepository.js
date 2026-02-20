@@ -17,9 +17,9 @@ class DealRepository {
         params.push(filters.practice_group);
       }
 
-      if (filters.deal_date) {
-        query += ' AND deal_date = ?';
-        params.push(filters.deal_date);
+      if (filters.deal_year) {
+        query += ' AND deal_year = ?';
+        params.push(filters.deal_year);
       }
 
       if (filters.source_system) {
@@ -27,7 +27,7 @@ class DealRepository {
         params.push(filters.source_system);
       }
 
-      query += ' ORDER BY deal_date DESC, deal_value DESC';
+      query += ' ORDER BY deal_year DESC, deal_value DESC';
 
       const [rows] = await pool.execute(query, params);
       return rows;
@@ -68,7 +68,7 @@ class DealRepository {
   async create(deal) {
     try {
       const [result] = await pool.execute(
-        `INSERT INTO deals (deal_name, client_name, deal_value, deal_currency, industry, practice_group, deal_date, deal_description, deal_type, source_system)
+        `INSERT INTO deals (deal_name, client_name, deal_value, deal_currency, industry, practice_group, deal_year, deal_description, deal_type, source_system)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           deal.deal_name,
@@ -77,7 +77,7 @@ class DealRepository {
           deal.deal_currency || 'USD',
           deal.industry || null,
           deal.practice_group || null,
-          deal.deal_date || null,
+          deal.deal_year || null,
           deal.deal_description || null,
           deal.deal_type || null,
           deal.source_system || 'admin'
@@ -119,9 +119,9 @@ class DealRepository {
         updates.push('practice_group = ?');
         params.push(deal.practice_group);
       }
-      if (deal.deal_date !== undefined) {
-        updates.push('deal_date = ?');
-        params.push(deal.deal_date);
+      if (deal.deal_year !== undefined) {
+        updates.push('deal_year = ?');
+        params.push(deal.deal_year);
       }
       if (deal.deal_description !== undefined) {
         updates.push('deal_description = ?');

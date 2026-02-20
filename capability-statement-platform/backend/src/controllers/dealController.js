@@ -5,7 +5,7 @@ class DealController {
     const filters = {
       industry: req.query.industry,
       practice_group: req.query.practice_group,
-      deal_date: req.query.deal_date ? parseInt(req.query.deal_date, 10) : undefined,
+      deal_year: req.query.deal_year ? parseInt(req.query.deal_year, 10) : undefined,
       source_system: req.query.source_system
     };
 

@@ -27,12 +27,10 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => {
     /*
-      🔑 IMPORTANT:
-
-      If this is a blob (DOCX / PDF),
-      return full response so binary stays intact.
+      🔑 Return full response for binary (DOCX / PDF)
+      so caller can use response.data and response.status.
     */
-    if (response.config.responseType === 'blob') {
+    if (response.config.responseType === 'blob' || response.config.responseType === 'arraybuffer') {
       return response
     }
 
@@ -40,20 +38,14 @@ api.interceptors.response.use(
     return response.data
   },
   (error) => {
-    const message =
-      error.response?.data?.error?.message ||
-      error.message ||
-      'An error occurred'
-
     if (error.response?.status === 401) {
       localStorage.removeItem('authToken')
-
       if (window.location.pathname !== '/login') {
         window.location.href = '/login'
       }
     }
-
-    return Promise.reject(new Error(message))
+    // Reject original error so callers can read response.status / response.data (e.g. 503 + JSON)
+    return Promise.reject(error)
   }
 )
 
