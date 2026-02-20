@@ -36,7 +36,7 @@ export const useCapStatementStore = defineStore('capStatement', () => {
   // NEW
   cross_border_bool: false,
   practice_list: [],
-  lead_partners: [],
+  lead_partner_ids: [],
   lawyer_roles: {},     // { lawyerId : "Head" }
   most_rel_award: [],
 
