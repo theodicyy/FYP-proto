@@ -89,7 +89,7 @@ CREATE TABLE lawyers (
   last_name VARCHAR(100),
   email VARCHAR(191),
 
-  practice_group VARCHAR(100),
+  practice_group VARCHAR(300),
   title VARCHAR(100),
   designation VARCHAR(100),
 
