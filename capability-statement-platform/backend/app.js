@@ -7,10 +7,9 @@ import { logger } from './src/utils/logger.js';
 import { errorHandler, notFoundHandler } from './src/middlewares/errorHandler.js';
 import routes from './src/routes/index.js';
 
-dotenv.config();
-
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+dotenv.config({ path: path.join(__dirname, '.env') });
 
 const app = express();
 
