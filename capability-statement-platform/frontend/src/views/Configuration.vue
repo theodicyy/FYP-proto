@@ -1,9 +1,5 @@
 <template>
-<<<<<<< HEAD
-  <div class="animate-fade-in space-y-6">
-=======
   <div class="animate-fade-in max-w-6xl mx-auto">
->>>>>>> 8a96effb2fb42cb1fdaa52f0f76b195d7fdc692f
 
     <!-- HEADER -->
     <div class="page-header">
@@ -11,34 +7,17 @@
       <p class="page-subtitle">Fill proposal details and assign roles for your document</p>
     </div>
 
-<<<<<<< HEAD
     <!-- SUMMARY -->
     <div class="card">
       <div class="flex gap-6 text-sm text-secondary-700">
         <div><b>Lawyers:</b> {{ dataStore.selectedLawyers.length || 'Test Lawyer' }}</div>
         <div><b>Deals:</b> {{ dataStore.selectedDeals.length || 'Test Deal' }}</div>
         <div><b>Awards:</b> {{ dataStore.selectedAwards.length || 'Test Award' }}</div>
-=======
-    <!-- SUMMARY BAR -->
-    <div class="card mb-6">
-      <div class="flex flex-wrap items-center gap-3">
-        <span class="section-title mb-0">Selected for this statement</span>
-        <span class="badge badge-primary">
-          {{ dataStore.selectedLawyers.length || 0 }} Lawyers
-        </span>
-        <span class="badge badge-accent">
-          {{ dataStore.selectedDeals.length || 0 }} Deals
-        </span>
-        <span class="badge badge-secondary">
-          {{ dataStore.selectedAwards.length || 0 }} Awards
-        </span>
->>>>>>> 8a96effb2fb42cb1fdaa52f0f76b195d7fdc692f
       </div>
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-<<<<<<< HEAD
       <!-- MANUAL INPUTS -->
       <div class="card space-y-3">
         <h2 class="card-title">Proposal Details</h2>
@@ -92,136 +71,10 @@
           <label class="flex items-center gap-2">
             <input type="checkbox" v-model="capStore.manualFields.show_track_record" />
             Include Track Record
-=======
-      <!-- LEFT: MANUAL FIELDS -->
-      <div class="card">
-        <div class="card-header">
-          <h2 class="card-title">Proposal details</h2>
-          <p class="card-subtitle">Client, matter and document information</p>
-        </div>
-
-        <!-- Client & document -->
-        <p class="section-title">Client & document</p>
-        <div class="input-group space-y-4 mb-6">
-          <div>
-            <label class="label">Client name</label>
-            <input v-model="capStore.manualFields.client_name" class="input" placeholder="e.g. Acme Corporation" />
-          </div>
-          <div>
-            <label class="label">Client short name</label>
-            <input v-model="capStore.manualFields.client_shortname" class="input" placeholder="e.g. Acme" />
-          </div>
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label class="label">Date</label>
-              <input type="date" v-model="capStore.manualFields.date" class="input" />
-            </div>
-            <div>
-              <label class="label">Tender number</label>
-              <input v-model="capStore.manualFields.tender_number" class="input" placeholder="Optional" />
-            </div>
-          </div>
-          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div>
-              <label class="label">Document type</label>
-              <select v-model="capStore.manualFields.doc_type" class="select">
-                <option value="">Select</option>
-                <option value="credential">Credential</option>
-                <option value="proposal">Proposal</option>
-              </select>
-            </div>
-            <div>
-              <label class="label">Matter type</label>
-              <select v-model="capStore.manualFields.matter_type" class="select">
-                <option value="">Select</option>
-                <option value="transaction">Transaction</option>
-                <option value="project">Project</option>
-              </select>
-            </div>
-            <div>
-              <label class="label">Client type</label>
-              <select v-model="capStore.manualFields.client_type" class="select">
-                <option value="">Select</option>
-                <option value="business">Business</option>
-                <option value="organisation">Organisation</option>
-              </select>
-            </div>
-          </div>
-          <div>
-            <label class="label">Main practice area</label>
-            <input v-model="capStore.manualFields.main_practice_area" class="input" placeholder="e.g. Corporate M&A" />
-          </div>
-          <div>
-            <label class="label">Matter description</label>
-            <textarea v-model="capStore.manualFields.matter_desc" class="input" rows="3" placeholder="Brief description of the matter" />
-          </div>
-        </div>
-
-        <!-- Scope & fees -->
-        <p class="section-title">Scope & fees</p>
-        <div class="input-group space-y-4 mb-6">
-          <div>
-            <label class="label">Scope summary</label>
-            <textarea v-model="capStore.manualFields.scope_of_work" class="input" rows="2" placeholder="High-level scope" />
-          </div>
-          <div>
-            <label class="label">Detailed scope</label>
-            <textarea v-model="capStore.manualFields.scope_of_work_list" class="input" rows="3" placeholder="Point-by-point or paragraph" />
-          </div>
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label class="label">Discount rate (%)</label>
-              <input v-model="capStore.manualFields.discount_rate" class="input" type="text" placeholder="e.g. 10" />
-            </div>
-            <div>
-              <label class="label">Fee assumptions</label>
-              <textarea v-model="capStore.manualFields.fee_assumptions" class="input" rows="2" placeholder="Brief assumptions" />
-            </div>
-          </div>
-        </div>
-
-        <!-- Options -->
-        <p class="section-title">Options</p>
-        <div class="flex flex-wrap gap-6">
-          <label class="checkbox-row">
-            <input type="checkbox" v-model="capStore.manualFields.cross_border_bool" class="checkbox-input" />
-            <span>Cross border</span>
-          </label>
-          <label class="checkbox-row">
-            <input type="checkbox" v-model="capStore.manualFields.show_highlights" class="checkbox-input" />
-            <span>Include highlights</span>
-          </label>
-          <label class="checkbox-row">
-            <input type="checkbox" v-model="capStore.manualFields.show_track_record" class="checkbox-input" />
-            <span>Include track record</span>
           </label>
         </div>
       </div>
 
-      <!-- RIGHT: TEAM & AWARDS -->
-      <div class="card">
-        <div class="card-header">
-          <h2 class="card-title">Team & recognition</h2>
-          <p class="card-subtitle">Practices, lead partners, roles and awards</p>
-        </div>
-
-        <!-- Practices -->
-        <p class="section-title">Practices</p>
-        <div class="flex flex-wrap gap-2 mb-6">
-          <label
-            v-for="p in practices"
-            :key="p"
-            class="practice-pill"
-            :class="{ 'practice-pill-active': (capStore.manualFields.practice_list || []).includes(p) }"
-          >
-            <input type="checkbox" :value="p" v-model="capStore.manualFields.practice_list" class="sr-only" />
-            <span>{{ p }}</span>
->>>>>>> 8a96effb2fb42cb1fdaa52f0f76b195d7fdc692f
-          </label>
-        </div>
-      </div>
-
-<<<<<<< HEAD
       <!-- STRUCTURED -->
       <div class="card space-y-6">
 
@@ -280,41 +133,6 @@
               <input type="checkbox" :value="a.id" v-model="capStore.manualFields.most_rel_award" />
               {{ a.award_name || 'Test Award' }}
             </label>
-=======
-        <!-- Lead partners -->
-        <p class="section-title">Lead partners</p>
-        <div class="mb-6">
-          <select multiple class="select min-h-[7rem]" v-model="capStore.manualFields.lead_partners">
-            <option
-              v-for="l in lawyers"
-              :key="l.id"
-              :value="l.id"
-            >
-              {{ l.first_name || 'Test' }} {{ l.last_name || 'Lawyer' }}
-            </option>
-          </select>
-          <p class="input-helper">Hold Ctrl/Cmd to select multiple</p>
-        </div>
-
-        <!-- Lawyer roles -->
-        <p class="section-title">Lawyer roles</p>
-        <div class="space-y-3 mb-6">
-          <div
-            v-for="l in lawyers"
-            :key="l.id"
-            class="flex items-center gap-4 py-2 border-b border-[var(--color-border)] last:border-0"
-          >
-            <span class="w-36 text-sm font-medium" style="color: var(--color-text);">
-              {{ l.first_name || 'Test' }} {{ l.last_name || 'Lawyer' }}
-            </span>
-            <select class="select flex-1 max-w-[12rem]" v-model="capStore.manualFields.lawyer_roles[l.id]">
-              <option value="">—</option>
-              <option value="Head">Head</option>
-              <option value="Co-head">Co-head</option>
-              <option value="Partner">Partner</option>
-              <option value="Associate">Associate</option>
-            </select>
->>>>>>> 8a96effb2fb42cb1fdaa52f0f76b195d7fdc692f
           </div>
         </div>
 
@@ -333,33 +151,10 @@
       </div>
     </div>
 
-<<<<<<< HEAD
     <div class="flex justify-end pt-4">
       <button class="btn btn-primary btn-lg" @click="generate">
         Generate
       </button>
-=======
-    <!-- ERROR & CTA -->
-    <div class="mt-8 flex flex-col gap-4">
-      <Transition name="fade">
-        <div v-if="capStore.error" class="alert alert-error flex items-start gap-3">
-          <svg class="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          <span>{{ capStore.error.friendlyMessage || capStore.error.message || 'Generate failed' }}</span>
-        </div>
-      </Transition>
-      <div class="flex justify-end">
-        <button
-          class="btn btn-primary btn-lg"
-          @click="generate"
-          :disabled="capStore.loading"
-        >
-          <span v-if="capStore.loading" class="spinner inline-block align-middle mr-2" />
-          {{ capStore.loading ? 'Generating…' : 'Generate capability statement' }}
-        </button>
-      </div>
->>>>>>> 8a96effb2fb42cb1fdaa52f0f76b195d7fdc692f
     </div>
 
   </div>
