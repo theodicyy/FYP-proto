@@ -222,6 +222,38 @@ const normalizePG = (pg) => {
     const awards_list =
       awards.map(a => `${a.award_name} – ${a.awarding_organization} (${a.award_year})`).join('\n') || ''
 
+    const partner_rows = partners.map(l => ({
+      name: l.name,
+      desc: formatDesc(l),
+      pg: l.pg || '',
+      email: l.email || '',
+      phone: l.phone || '',
+      admissions: l.admissions || ''
+    }))
+
+    const lawyer_profiles = [
+      ...leads.map((l, idx) => ({
+        full_name: l.name,
+        role: l.role,
+        pg: l.pg || '',
+        desc: formatDesc(l),
+        email: l.email || '',
+        phone: l.phone || '',
+        admissions: l.admissions || '',
+        page_break: idx !== 0 // false for first lead, true otherwise
+      })),
+      ...partners.map(l => ({
+        full_name: l.name,
+        role: l.role,
+        pg: l.pg || '',
+        desc: formatDesc(l),
+        email: l.email || '',
+        phone: l.phone || '',
+        admissions: l.admissions || '',
+        page_break: true
+      }))
+    ]
+  
     // =====================================================
     // FINAL PAYLOAD
     // =====================================================
@@ -263,13 +295,9 @@ const normalizePG = (pg) => {
       partner4_phone: lawyer4?.phone || '',
       partner4_admissions: lawyer4?.admissions || '',
 
-      partner_rows: partners.map(l => ({
-        name: l.name,
-        desc: formatDesc(l),
-        email: l.email,
-        phone: l.phone,
-        admissions: l.admissions
-      })),
+      partner_rows,
+
+      lawyer_profiles,
 
       deal_rows,
       deal_pg_groups,
