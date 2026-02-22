@@ -76,7 +76,31 @@ const normalizePG = (pg) => {
     const [awards] = awardIds.length
       ? await pool.query(`SELECT * FROM awards WHERE id IN (?)`, [awardIds])
       : [[]]
+      // =====================================================
+      // EXTRA GENERAL AWARDS (TOP 3, NO DUPLICATES)
+      // =====================================================
 
+      // IDs already selected
+      const selectedAwardIds = awards.map(a => a.id)
+
+      // Pull General awards
+      const [generalAwardsRaw] = await pool.query(
+        `SELECT * FROM awards`
+      )
+
+      // Filter only those with PG = General
+      const generalAwards = generalAwardsRaw.filter(a => {
+        const pgs = normalizePG(a.award_pg)
+        return pgs.includes('General')
+      })
+
+      // Remove overlap with selected awards
+      const filteredGeneralAwards = generalAwards.filter(
+        a => !selectedAwardIds.includes(a.id)
+      )
+
+      // Take first 3 only
+      const top3GeneralAwards = filteredGeneralAwards.slice(0, 3)
     // =====================================================
     // EXISTING CLIENT CHECK
     // =====================================================
@@ -199,28 +223,32 @@ const normalizePG = (pg) => {
     // =====================================================
     // AWARDS GROUPED BY PG
     // =====================================================
-
+    const clean = v => (v === null || v === undefined || v === 'null') ? '' : v 
     const award_pg_map = {}
 
-    awards.forEach(a => {
-      normalizePG(a.award_pg || 'General').forEach(pg => {
-        if (!award_pg_map[pg]) award_pg_map[pg] = []
+awards.forEach(a => {
+  normalizePG(a.award_pg || 'General').forEach(pg => {
+    if (!award_pg_map[pg]) award_pg_map[pg] = []
 
-        award_pg_map[pg].push({
-          award_name: a.award_name || '',
-          legal_pub: a.publications || '',
-          year: a.award_year || ''
-        })
-      })
+    award_pg_map[pg].push({
+      award_name: clean(a.award_name),
+      legal_pub: clean(a.publications),
+      year: clean(a.award_year)
     })
+  })
+})
 
     const award_groups = Object.keys(award_pg_map).map(pg => ({
       pg,
       awards: award_pg_map[pg]
     }))
 
-    const awards_list =
-      awards.map(a => `${a.award_name} – ${a.awarding_organization} (${a.award_year})`).join('\n') || ''
+const awards_list = [
+  ...awards,
+  ...top3GeneralAwards
+]
+.map(a => `${a.award_name} – ${a.description === null || a.description === 'null' ? '' : a.description} (${a.award_year})`)
+.join('\n')
 
     const partner_rows = partners.map(l => ({
       name: l.name,
