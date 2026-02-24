@@ -139,7 +139,7 @@ CREATE TABLE deals (
 
   deal_pg JSON,
   past_clients TEXT,
-
+  deal_industry TEXT,
   remarks TEXT,
   partner_approval ENUM('Yes','No'),
   partner_initial VARCHAR(20),
