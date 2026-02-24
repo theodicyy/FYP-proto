@@ -36,16 +36,6 @@
                 </svg>
                 Aggregation
               </router-link>
-              <router-link
-                to="/library"
-                class="nav-link"
-                :class="{ 'nav-link-active': $route.path === '/library' }"
-              >
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l9-4 9 4M4 10h16v11H4V10z" />
-                </svg>
-                Library
-              </router-link>
             </template>
           </div>
 
@@ -112,16 +102,6 @@
                       </svg>
                       Awards Management
                     </router-link>
-                    <router-link
-                      to="/admin/templates"
-                      @click="showAdminMenu = false"
-                      class="dropdown-item flex items-center gap-3"
-                    >
-                      <svg class="w-4 h-4 text-secondary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" />
-                      </svg>
-                      Templates Management
-                    </router-link>
                   </div>
                 </Transition>
               </div>
@@ -181,15 +161,7 @@
               >
                 Aggregation
               </router-link>
-              <router-link
-                to="/library"
-                @click="showMobileMenu = false"
-                class="block px-4 py-3 rounded-lg text-secondary-700 hover:bg-secondary-50"
-                :class="{ 'bg-primary-50 text-primary-700': $route.path === '/library' }"
-              >
-                Library
-              </router-link>
-              
+
               <!-- Admin Links (Mobile) -->
               <template v-if="authStore.isAdmin">
                 <div class="pt-3 mt-3 border-t border-secondary-100">
@@ -214,13 +186,6 @@
                     class="block px-4 py-3 rounded-lg text-secondary-700 hover:bg-secondary-50"
                   >
                     Awards Management
-                  </router-link>
-                  <router-link
-                    to="/admin/templates"
-                    @click="showMobileMenu = false"
-                    class="block px-4 py-3 rounded-lg text-secondary-700 hover:bg-secondary-50"
-                  >
-                    Templates Management
                   </router-link>
                 </div>
               </template>

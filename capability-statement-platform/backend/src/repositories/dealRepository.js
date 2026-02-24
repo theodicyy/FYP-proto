@@ -50,6 +50,20 @@ class DealRepository {
     }
   }
 
+  async findDistinctIndustries() {
+    try {
+      const [rows] = await pool.execute(
+        `SELECT DISTINCT deal_industry FROM deals
+         WHERE deal_industry IS NOT NULL AND TRIM(deal_industry) != ''
+         ORDER BY deal_industry ASC`
+      );
+      return rows.map((r) => r.deal_industry);
+    } catch (error) {
+      logger.error('Error fetching distinct deal industries', { error: error.message });
+      throw error;
+    }
+  }
+
   async findByIds(ids) {
     if (!ids || ids.length === 0) return [];
     try {

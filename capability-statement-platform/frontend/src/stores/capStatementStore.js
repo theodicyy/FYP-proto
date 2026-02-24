@@ -33,6 +33,9 @@ export const useCapStatementStore = defineStore('capStatement', () => {
   main_practice_area: '',
   fee_assumptions: '',
 
+  deal_industry: '',
+  industry_specific_pitch: false,
+
   // NEW
   cross_border_bool: false,
   practice_list: [],

@@ -88,7 +88,7 @@
         
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <router-link 
-            to="/create" 
+            to="/aggregation" 
             class="group p-5 rounded-xl border border-secondary-200 hover:border-primary-300 hover:bg-primary-50/50 transition-all duration-200"
           >
             <div class="flex items-start gap-4">
@@ -100,23 +100,6 @@
               <div>
                 <h3 class="font-medium text-secondary-900 group-hover:text-primary-700 transition-colors">Create New Statement</h3>
                 <p class="text-sm text-secondary-500 mt-1">Select data and generate a new capability statement</p>
-              </div>
-            </div>
-          </router-link>
-
-          <router-link 
-            to="/library" 
-            class="group p-5 rounded-xl border border-secondary-200 hover:border-emerald-300 hover:bg-emerald-50/50 transition-all duration-200"
-          >
-            <div class="flex items-start gap-4">
-              <div class="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-600 group-hover:scale-110 transition-transform duration-200">
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l9-4 9 4M4 10h16v11H4V10z" />
-                </svg>
-              </div>
-              <div>
-                <h3 class="font-medium text-secondary-900 group-hover:text-emerald-700 transition-colors">View Library</h3>
-                <p class="text-sm text-secondary-500 mt-1">Browse and manage saved capability statements</p>
               </div>
             </div>
           </router-link>
@@ -141,18 +124,36 @@
 
           <router-link 
             v-if="authStore.isAdmin"
-            to="/admin/templates" 
-            class="group p-5 rounded-xl border border-secondary-200 hover:border-purple-300 hover:bg-purple-50/50 transition-all duration-200"
+            to="/admin/deals" 
+            class="group p-5 rounded-xl border border-secondary-200 hover:border-emerald-300 hover:bg-emerald-50/50 transition-all duration-200"
           >
             <div class="flex items-start gap-4">
-              <div class="w-12 h-12 rounded-xl bg-purple-100 flex items-center justify-center text-purple-600 group-hover:scale-110 transition-transform duration-200">
+              <div class="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-600 group-hover:scale-110 transition-transform duration-200">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
               </div>
               <div>
-                <h3 class="font-medium text-secondary-900 group-hover:text-purple-700 transition-colors">Manage Templates</h3>
-                <p class="text-sm text-secondary-500 mt-1">Create and customize document templates</p>
+                <h3 class="font-medium text-secondary-900 group-hover:text-emerald-700 transition-colors">Manage Deals</h3>
+                <p class="text-sm text-secondary-500 mt-1">Add, edit, or remove deal records</p>
+              </div>
+            </div>
+          </router-link>
+
+          <router-link 
+            v-if="authStore.isAdmin"
+            to="/admin/awards" 
+            class="group p-5 rounded-xl border border-secondary-200 hover:border-amber-300 hover:bg-amber-50/50 transition-all duration-200"
+          >
+            <div class="flex items-start gap-4">
+              <div class="w-12 h-12 rounded-xl bg-amber-100 flex items-center justify-center text-amber-600 group-hover:scale-110 transition-transform duration-200">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                </svg>
+              </div>
+              <div>
+                <h3 class="font-medium text-secondary-900 group-hover:text-amber-700 transition-colors">Manage Awards</h3>
+                <p class="text-sm text-secondary-500 mt-1">Add, edit, or remove awards and accolades</p>
               </div>
             </div>
           </router-link>

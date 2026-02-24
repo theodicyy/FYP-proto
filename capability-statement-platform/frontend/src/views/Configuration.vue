@@ -118,14 +118,36 @@
             </div>
           </div>
           <div class="input-group">
-            <label class="label" for="main_practice_area">Main practice area</label>
-            <input
-              id="main_practice_area"
-              v-model="capStore.manualFields.main_practice_area"
-              type="text"
-              class="input"
-              placeholder="e.g. Corporate M&A"
-            />
+            <label class="label" for="deal_industry">Deal industry</label>
+            <select
+              id="deal_industry"
+              v-model="capStore.manualFields.deal_industry"
+              class="select"
+              aria-label="Select deal industry"
+            >
+              <option value="">Select industry</option>
+              <option
+                v-for="ind in dealIndustries"
+                :key="ind"
+                :value="ind"
+              >
+                {{ ind }}
+              </option>
+            </select>
+            <p v-if="dealIndustries.length === 0 && !dealIndustriesLoading" class="text-muted text-sm mt-1">
+              No industries in database.
+            </p>
+          </div>
+          <div class="input-group">
+            <label class="checkbox-row">
+              <input
+                v-model="capStore.manualFields.industry_specific_pitch"
+                type="checkbox"
+                class="checkbox-input"
+                aria-describedby="opt-industry-pitch"
+              />
+              <span id="opt-industry-pitch">Industry-specific pitch</span>
+            </label>
           </div>
           <div class="input-group">
             <label class="label" for="matter_desc">Matter description</label>
@@ -353,16 +375,33 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useDataStore } from '../stores/dataStore'
 import { useCapStatementStore } from '../stores/capStatementStore'
 import { useCreateFlowStore } from '../stores/createFlowStore'
+import dataService from '../services/dataService'
 
 const router = useRouter()
 const dataStore = useDataStore()
 const capStore = useCapStatementStore()
 const flow = useCreateFlowStore()
+
+const dealIndustries = ref([])
+const dealIndustriesLoading = ref(false)
+
+onMounted(async () => {
+  dealIndustriesLoading.value = true
+  try {
+    const res = await dataService.getDealIndustries()
+    const data = res?.data ?? res ?? []
+    dealIndustries.value = Array.isArray(data) ? data : []
+  } catch (_) {
+    dealIndustries.value = []
+  } finally {
+    dealIndustriesLoading.value = false
+  }
+})
 
 const lawyers = computed(() =>
   dataStore.selectedLawyers.length ? dataStore.selectedLawyers : [{ id: 1 }]

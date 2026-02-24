@@ -177,11 +177,40 @@ const normalizePG = (pg) => {
     }))
 
     // =====================================================
+    // MAIN PRACTICE AREA (from deal_industry dropdown or manual)
+    // =====================================================
+    const main_practice_area = manualFields.deal_industry || manualFields.main_practice_area || ''
+
+    // =====================================================
+    // PREVIOUS CLIENTS (up to 8) from deals by selected deal_industry
+    // =====================================================
+    let previous_client1 = ''
+    let previous_client2 = ''
+    let previous_client3 = ''
+    let previous_client4 = ''
+    let previous_client5 = ''
+    let previous_client6 = ''
+    let previous_client7 = ''
+    let previous_client8 = ''
+    if (manualFields.deal_industry) {
+      const [industryDeals] = await pool.query(
+        `SELECT client_name FROM deals WHERE deal_industry = ? ORDER BY id ASC LIMIT 8`,
+        [manualFields.deal_industry]
+      )
+      const clientNames = industryDeals.map((d) => (d.client_name != null ? String(d.client_name).trim() : '')).filter(Boolean)
+      previous_client1 = clientNames[0] || ''
+      previous_client2 = clientNames[1] || ''
+      previous_client3 = clientNames[2] || ''
+      previous_client4 = clientNames[3] || ''
+      previous_client5 = clientNames[4] || ''
+      previous_client6 = clientNames[5] || ''
+      previous_client7 = clientNames[6] || ''
+      previous_client8 = clientNames[7] || ''
+    }
+
+    // =====================================================
     // TOP 3 FROM MAIN PRACTICE AREA
     // =====================================================
-
-    const main_practice_area = manualFields.main_practice_area || ''
-
     const main_pg_deals = deals
       .filter(d => normalizePG(d.deal_pg).includes(main_practice_area))
       .slice(0, 3)
@@ -292,6 +321,15 @@ const awards_list = [
       existing_client_bool,
       previous_summary,
       main_practice_area,
+
+      previous_client1,
+      previous_client2,
+      previous_client3,
+      previous_client4,
+      previous_client5,
+      previous_client6,
+      previous_client7,
+      previous_client8,
 
       lead_partners: leads.map(l => l.name).join(', '),
 

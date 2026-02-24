@@ -22,6 +22,14 @@ class DealController {
     });
   }
 
+  async getDealIndustries(req, res) {
+    const industries = await dealService.getDistinctIndustries();
+    res.json({
+      success: true,
+      data: industries
+    });
+  }
+
   async getDealById(req, res) {
     const { id } = req.params;
     const deal = await dealService.getDealById(parseInt(id, 10));

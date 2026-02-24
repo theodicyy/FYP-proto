@@ -79,6 +79,10 @@ export const dataService = {
     return await api.get(`/deals/${id}`)
   },
 
+  async getDealIndustries() {
+    return await api.get('/deals/industries')
+  },
+
   async createDeal(data) {
     return await api.post('/deals', data)
   },

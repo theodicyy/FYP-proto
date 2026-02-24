@@ -24,6 +24,17 @@ class DealService {
     }
   }
 
+  async getDistinctIndustries() {
+    try {
+      const industries = await dealRepository.findDistinctIndustries();
+      logger.info('Retrieved distinct deal industries', { count: industries.length });
+      return industries;
+    } catch (error) {
+      logger.error('Error fetching distinct industries in service', { error: error.message });
+      throw error;
+    }
+  }
+
 
 
 

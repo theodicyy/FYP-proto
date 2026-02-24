@@ -11,6 +11,10 @@ router.get('/', optionalAuthenticate, asyncHandler(async (req, res) => {
   await dealController.getDeals(req, res);
 }));
 
+router.get('/industries', optionalAuthenticate, asyncHandler(async (req, res) => {
+  await dealController.getDealIndustries(req, res);
+}));
+
 router.get('/:id', optionalAuthenticate, asyncHandler(async (req, res) => {
   await dealController.getDealById(req, res);
 }));

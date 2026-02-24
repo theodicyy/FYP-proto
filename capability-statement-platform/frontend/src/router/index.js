@@ -5,18 +5,14 @@ import { setAuthToken } from '../services/dataService'
 import Dashboard from '../views/Dashboard.vue'
 import Configuration from '../views/Configuration.vue'
 import Preview from '../views/Preview.vue'
-import Library from '../views/Library.vue'
 import Login from '../views/Login.vue'
 
-// Admin (kept for future use)
 import AdminLawyers from '../views/admin/LawyersManagement.vue'
 import AdminDeals from '../views/admin/DealsManagement.vue'
 import AdminAwards from '../views/admin/AwardsManagement.vue'
-import AdminTemplates from '../views/admin/TemplatesManagement.vue'
 
 import TemplatePreview from '../views/TemplatePreview.vue'
 import Aggregation from '../views/Aggregation.vue'
-import Create from '../views/Create.vue'
 
 const routes = [
   {
@@ -50,13 +46,6 @@ const routes = [
   },
 
   {
-    path: '/library',
-    name: 'Library',
-    component: Library,
-    meta: { requiresAuth: true }
-  },
-  
-  {
     path: '/aggregation',
     name: 'Aggregation',
     component: Aggregation,
@@ -82,12 +71,6 @@ const routes = [
     path: '/admin/awards',
     name: 'AdminAwards',
     component: AdminAwards,
-    meta: { requiresAuth: true, requiresAdmin: true }
-  },
-  {
-    path: '/admin/templates',
-    name: 'AdminTemplates',
-    component: AdminTemplates,
     meta: { requiresAuth: true, requiresAdmin: true }
   },
 

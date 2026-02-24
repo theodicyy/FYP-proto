@@ -1,11 +1,10 @@
 <template>
   <div class="animate-fade-in">
-    <!-- Page Header -->
     <div class="page-header">
       <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div>
           <h1 class="page-title">Awards Management</h1>
-          <p class="page-subtitle">Manage firm awards and accolades</p>
+          <p class="page-subtitle">Manage firm awards and accolades (schema-driven)</p>
         </div>
         <button @click="showCreateModal = true" class="btn btn-primary">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -16,7 +15,6 @@
       </div>
     </div>
 
-    <!-- Filters -->
     <div class="card mb-6">
       <div class="flex flex-col lg:flex-row gap-4">
         <div class="flex-1 input-group">
@@ -27,17 +25,12 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
             </span>
-            <input v-model="searchQuery" type="text" placeholder="Search awards..." class="input pl-12" />
+            <input v-model="searchQuery" type="text" placeholder="Search by award or organization..." class="input pl-12" />
           </div>
         </div>
         <div class="w-full lg:w-40 input-group">
-          <label class="label">Industry</label>
-          <select v-model="filterIndustry" class="select">
-            <option value="">All</option>
-            <option value="Technology">Technology</option>
-            <option value="Healthcare">Healthcare</option>
-            <option value="Manufacturing">Manufacturing</option>
-          </select>
+          <label class="label">Category</label>
+          <input v-model="filterCategory" type="text" placeholder="Filter by category" class="input" />
         </div>
         <div class="w-full lg:w-32 input-group">
           <label class="label">Year</label>
@@ -54,7 +47,6 @@
       </div>
     </div>
 
-    <!-- Table -->
     <div class="card">
       <div v-if="loading" class="py-12 text-center">
         <div class="spinner mx-auto mb-4"></div>
@@ -65,49 +57,32 @@
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
         </svg>
         <h3 class="empty-state-title">No awards found</h3>
-        <p class="empty-state-description">Add an award to get started or adjust your filters.</p>
+        <p class="empty-state-description">Add an award or adjust your filters.</p>
       </div>
       <div v-else class="overflow-x-auto">
         <table class="table">
           <thead>
             <tr>
-              <th>Award Name</th>
+              <th>Award name</th>
               <th>Organization</th>
               <th>Year</th>
               <th>Category</th>
-              <th>Industry</th>
               <th class="text-right">Actions</th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="award in filteredAwards" :key="award.id">
-              <td>
-                <div class="flex items-center gap-2">
-                  <svg class="w-5 h-5 text-amber-500" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-                  </svg>
-                  <span class="font-medium text-secondary-900">{{ award.award_name }}</span>
-                </div>
-              </td>
+              <td class="font-medium text-secondary-900">{{ award.award_name || '-' }}</td>
               <td>{{ award.awarding_organization || '-' }}</td>
-              <td>{{ award.award_year || '-' }}</td>
+              <td>{{ award.award_year ?? '-' }}</td>
               <td>
-                <span v-if="award.category" class="badge badge-warning">{{ award.category }}</span>
+                <span v-if="award.category" class="badge badge-secondary">{{ award.category }}</span>
                 <span v-else class="text-secondary-400">-</span>
               </td>
-              <td>{{ award.industry || '-' }}</td>
               <td>
                 <div class="flex items-center justify-end gap-2">
-                  <button @click="editAward(award)" class="btn btn-ghost btn-sm text-primary-600">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                    </svg>
-                  </button>
-                  <button @click="confirmDelete(award)" class="btn btn-ghost btn-sm text-red-600">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                  </button>
+                  <button @click="editAward(award)" class="btn btn-ghost btn-sm text-primary-600">Edit</button>
+                  <button @click="confirmDelete(award)" class="btn btn-ghost btn-sm text-red-600">Delete</button>
                 </div>
               </td>
             </tr>
@@ -116,7 +91,6 @@
       </div>
     </div>
 
-    <!-- Create/Edit Modal -->
     <Teleport to="body">
       <Transition name="modal">
         <div v-if="showCreateModal || editingAward" class="modal-overlay" @click.self="closeModal">
@@ -125,53 +99,40 @@
               <h3 class="text-lg font-semibold text-secondary-900">
                 {{ editingAward ? 'Edit Award' : 'Add New Award' }}
               </h3>
-              <button @click="closeModal" class="btn btn-ghost btn-sm">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
+              <button @click="closeModal" class="btn btn-ghost btn-sm">×</button>
             </div>
-            
             <form @submit.prevent="saveAward">
               <div class="modal-body space-y-4">
+                <p class="section-title">Core details</p>
                 <div class="input-group">
-                  <label class="label">Award Name *</label>
-                  <input v-model="awardForm.award_name" type="text" required class="input" />
+                  <label class="label">Award name *</label>
+                  <input v-model="awardForm.award_name" type="text" required class="input" maxlength="255" />
                 </div>
-                
                 <div class="input-group">
-                  <label class="label">Awarding Organization</label>
-                  <input v-model="awardForm.awarding_organization" type="text" class="input" />
+                  <label class="label">Awarding organization</label>
+                  <input v-model="awardForm.awarding_organization" type="text" class="input" maxlength="255" />
                 </div>
-                
-                <div class="grid grid-cols-2 gap-4">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div class="input-group">
-                    <label class="label">Award Year</label>
+                    <label class="label">Award year</label>
                     <input v-model.number="awardForm.award_year" type="number" class="input" />
                   </div>
                   <div class="input-group">
                     <label class="label">Category</label>
-                    <input v-model="awardForm.category" type="text" class="input" />
+                    <input v-model="awardForm.category" type="text" class="input" maxlength="100" />
                   </div>
                 </div>
-                
-                <div class="grid grid-cols-2 gap-4">
-                  <div class="input-group">
-                    <label class="label">Practice Group</label>
-                    <input v-model="awardForm.practice_group" type="text" class="input" />
-                  </div>
-                  <div class="input-group">
-                    <label class="label">Industry</label>
-                    <input v-model="awardForm.industry" type="text" class="input" />
-                  </div>
-                </div>
-                
+
+                <p class="section-title">Description & publications</p>
                 <div class="input-group">
                   <label class="label">Description</label>
                   <textarea v-model="awardForm.description" rows="3" class="input"></textarea>
                 </div>
+                <div class="input-group">
+                  <label class="label">Publications</label>
+                  <textarea v-model="awardForm.publications" rows="2" class="input"></textarea>
+                </div>
               </div>
-              
               <div class="modal-footer">
                 <button type="button" @click="closeModal" class="btn btn-secondary">Cancel</button>
                 <button type="submit" class="btn btn-primary" :disabled="saving">
@@ -184,20 +145,12 @@
       </Transition>
     </Teleport>
 
-    <!-- Delete Modal -->
     <Teleport to="body">
       <Transition name="modal">
         <div v-if="awardToDelete" class="modal-overlay" @click.self="awardToDelete = null">
           <div class="modal">
             <div class="modal-header">
-              <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center text-red-600">
-                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                  </svg>
-                </div>
-                <h3 class="text-lg font-semibold text-secondary-900">Delete Award</h3>
-              </div>
+              <h3 class="text-lg font-semibold text-secondary-900">Delete Award</h3>
             </div>
             <div class="modal-body">
               <p class="text-secondary-700">
@@ -227,7 +180,7 @@ const loading = ref(false)
 const saving = ref(false)
 const deleting = ref(false)
 const searchQuery = ref('')
-const filterIndustry = ref('')
+const filterCategory = ref('')
 const filterYear = ref(null)
 const showCreateModal = ref(false)
 const editingAward = ref(null)
@@ -238,37 +191,30 @@ const awardForm = ref({
   awarding_organization: '',
   award_year: null,
   category: '',
-  practice_group: '',
-  industry: '',
   description: '',
-  source_system: 'admin'
+  publications: ''
 })
 
 const filteredAwards = computed(() => {
   let filtered = [...awards.value]
-  
-  if (searchQuery.value) {
-    const query = searchQuery.value.toLowerCase()
-    filtered = filtered.filter(a => 
-      a.award_name.toLowerCase().includes(query) ||
-      (a.awarding_organization && a.awarding_organization.toLowerCase().includes(query))
+  const q = searchQuery.value.toLowerCase().trim()
+  if (q) {
+    filtered = filtered.filter(a =>
+      (a.award_name || '').toLowerCase().includes(q) ||
+      (a.awarding_organization || '').toLowerCase().includes(q)
     )
   }
-  
-  if (filterIndustry.value) {
-    filtered = filtered.filter(a => a.industry === filterIndustry.value)
+  if (filterCategory.value.trim()) {
+    const cat = filterCategory.value.toLowerCase().trim()
+    filtered = filtered.filter(a => (a.category || '').toLowerCase().includes(cat))
   }
-  
-  if (filterYear.value) {
+  if (filterYear.value != null && filterYear.value !== '') {
     filtered = filtered.filter(a => a.award_year === filterYear.value)
   }
-  
   return filtered
 })
 
-onMounted(async () => {
-  await fetchAwards()
-})
+onMounted(() => fetchAwards())
 
 async function fetchAwards() {
   loading.value = true
@@ -285,21 +231,19 @@ async function fetchAwards() {
 
 function clearFilters() {
   searchQuery.value = ''
-  filterIndustry.value = ''
+  filterCategory.value = ''
   filterYear.value = null
 }
 
 function editAward(award) {
   editingAward.value = award
   awardForm.value = {
-    award_name: award.award_name,
+    award_name: award.award_name || '',
     awarding_organization: award.awarding_organization || '',
-    award_year: award.award_year || null,
+    award_year: award.award_year != null ? award.award_year : null,
     category: award.category || '',
-    practice_group: award.practice_group || '',
-    industry: award.industry || '',
     description: award.description || '',
-    source_system: award.source_system || 'admin'
+    publications: award.publications || ''
   }
 }
 
@@ -311,9 +255,21 @@ function closeModal() {
     awarding_organization: '',
     award_year: null,
     category: '',
-    practice_group: '',
-    industry: '',
     description: '',
+    publications: ''
+  }
+}
+
+function buildPayload() {
+  const f = awardForm.value
+  return {
+    award_name: f.award_name,
+    awarding_organization: f.awarding_organization || null,
+    award_year: f.award_year != null ? f.award_year : null,
+    category: f.category || null,
+    description: f.description || null,
+    practice_group: null,
+    industry: null,
     source_system: 'admin'
   }
 }
@@ -321,10 +277,11 @@ function closeModal() {
 async function saveAward() {
   saving.value = true
   try {
+    const payload = buildPayload()
     if (editingAward.value) {
-      await dataService.updateAward(editingAward.value.id, awardForm.value)
+      await dataService.updateAward(editingAward.value.id, payload)
     } else {
-      await dataService.createAward(awardForm.value)
+      await dataService.createAward(payload)
     }
     closeModal()
     await fetchAwards()
@@ -341,7 +298,6 @@ function confirmDelete(award) {
 
 async function deleteAward() {
   if (!awardToDelete.value) return
-  
   deleting.value = true
   try {
     await dataService.deleteAward(awardToDelete.value.id)
@@ -356,13 +312,13 @@ async function deleteAward() {
 </script>
 
 <style scoped>
-.modal-enter-active, .modal-leave-active {
-  transition: all 0.3s ease;
+.section-title {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-text-light, #6b7280);
+  letter-spacing: 0.02em;
 }
-.modal-enter-from, .modal-leave-to {
-  opacity: 0;
-}
-.modal-enter-from .modal, .modal-leave-to .modal {
-  transform: scale(0.95) translateY(10px);
-}
+.modal-enter-active, .modal-leave-active { transition: all 0.3s ease; }
+.modal-enter-from, .modal-leave-to { opacity: 0; }
+.modal-enter-from .modal, .modal-leave-to .modal { transform: scale(0.95) translateY(10px); }
 </style>
