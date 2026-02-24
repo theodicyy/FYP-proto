@@ -55,7 +55,7 @@
         <h3 class="empty-state-title">No deals found</h3>
         <p class="empty-state-description">Add a deal or adjust your filters.</p>
       </div>
-      <div v-else class="overflow-x-auto">
+      <div v-else class="crud-table-wrap">
         <table class="table">
           <thead>
             <tr>
@@ -65,7 +65,7 @@
               <th>Currency</th>
               <th>Deal date</th>
               <th>Deal industry</th>
-              <th class="text-right">Actions</th>
+              <th class="crud-actions-col">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -79,10 +79,18 @@
                 <span v-if="deal.deal_industry || deal.industry" class="badge badge-secondary">{{ deal.deal_industry || deal.industry }}</span>
                 <span v-else class="text-secondary-400">-</span>
               </td>
-              <td>
-                <div class="flex items-center justify-end gap-2">
-                  <button @click="editDeal(deal)" class="btn btn-ghost btn-sm text-primary-600" title="Edit">Edit</button>
-                  <button @click="confirmDelete(deal)" class="btn btn-ghost btn-sm text-red-600" title="Delete">Delete</button>
+              <td class="crud-actions-col">
+                <div class="crud-actions">
+                  <button type="button" @click="editDeal(deal)" class="crud-btn crud-btn-edit" title="Edit" aria-label="Edit">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                    </svg>
+                  </button>
+                  <button type="button" @click="confirmDelete(deal)" class="crud-btn crud-btn-delete" title="Delete" aria-label="Delete">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </button>
                 </div>
               </td>
             </tr>
@@ -371,14 +379,22 @@ function buildPayload() {
   return {
     deal_name: f.deal_name,
     client_name: f.client_name || null,
+    deal_summary: f.deal_summary || null,
+    significant_features: f.significant_features || null,
+    notability: f.notability || null,
+    notable_reason: f.notable_reason || null,
+    acting_for: f.acting_for || null,
     deal_value: f.deal_value != null ? f.deal_value : null,
-    deal_currency: f.currency || 'USD',
-    industry: f.deal_industry || null,
-    practice_group: null,
+    currency: f.currency || null,
+    jurisdiction: f.jurisdiction || null,
     deal_date: f.deal_date || null,
-    deal_description: f.deal_summary || null,
-    deal_type: null,
-    source_system: 'admin'
+    signing_date: f.signing_date || null,
+    completion_date: f.completion_date || null,
+    past_clients: f.past_clients || null,
+    deal_industry: f.deal_industry || null,
+    remarks: f.remarks || null,
+    partner_approval: f.partner_approval || null,
+    partner_initial: f.partner_initial || null
   }
 }
 

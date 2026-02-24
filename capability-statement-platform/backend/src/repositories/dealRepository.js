@@ -7,24 +7,14 @@ class DealRepository {
       let query = 'SELECT * FROM deals WHERE 1=1';
       const params = [];
 
-      if (filters.industry) {
-        query += ' AND industry = ?';
-        params.push(filters.industry);
-      }
-
-      if (filters.practice_group) {
-        query += ' AND practice_group = ?';
-        params.push(filters.practice_group);
+      if (filters.deal_industry) {
+        query += ' AND deal_industry = ?';
+        params.push(filters.deal_industry);
       }
 
       if (filters.deal_date) {
         query += ' AND deal_date = ?';
         params.push(filters.deal_date);
-      }
-
-      if (filters.source_system) {
-        query += ' AND source_system = ?';
-        params.push(filters.source_system);
       }
 
       query += ' ORDER BY deal_date DESC, deal_value DESC';
@@ -82,19 +72,27 @@ class DealRepository {
   async create(deal) {
     try {
       const [result] = await pool.execute(
-        `INSERT INTO deals (deal_name, client_name, deal_value, deal_currency, industry, practice_group, deal_date, deal_description, deal_type, source_system)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO deals (deal_name, client_name, deal_summary, significant_features, notability, notable_reason, acting_for, deal_value, currency, jurisdiction, deal_date, signing_date, completion_date, past_clients, deal_industry, remarks, partner_approval, partner_initial)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           deal.deal_name,
           deal.client_name || null,
-          deal.deal_value || null,
-          deal.deal_currency || 'USD',
-          deal.industry || null,
-          deal.practice_group || null,
+          deal.deal_summary || null,
+          deal.significant_features || null,
+          deal.notability || null,
+          deal.notable_reason || null,
+          deal.acting_for || null,
+          deal.deal_value ?? null,
+          deal.currency || null,
+          deal.jurisdiction || null,
           deal.deal_date || null,
-          deal.deal_description || null,
-          deal.deal_type || null,
-          deal.source_system || 'admin'
+          deal.signing_date || null,
+          deal.completion_date || null,
+          deal.past_clients || null,
+          deal.deal_industry || null,
+          deal.remarks || null,
+          deal.partner_approval || null,
+          deal.partner_initial || null
         ]
       );
       return result.insertId;
@@ -117,37 +115,69 @@ class DealRepository {
         updates.push('client_name = ?');
         params.push(deal.client_name);
       }
+      if (deal.deal_summary !== undefined) {
+        updates.push('deal_summary = ?');
+        params.push(deal.deal_summary);
+      }
+      if (deal.significant_features !== undefined) {
+        updates.push('significant_features = ?');
+        params.push(deal.significant_features);
+      }
+      if (deal.notability !== undefined) {
+        updates.push('notability = ?');
+        params.push(deal.notability);
+      }
+      if (deal.notable_reason !== undefined) {
+        updates.push('notable_reason = ?');
+        params.push(deal.notable_reason);
+      }
+      if (deal.acting_for !== undefined) {
+        updates.push('acting_for = ?');
+        params.push(deal.acting_for);
+      }
       if (deal.deal_value !== undefined) {
         updates.push('deal_value = ?');
         params.push(deal.deal_value);
       }
-      if (deal.deal_currency !== undefined) {
-        updates.push('deal_currency = ?');
-        params.push(deal.deal_currency);
+      if (deal.currency !== undefined) {
+        updates.push('currency = ?');
+        params.push(deal.currency);
       }
-      if (deal.industry !== undefined) {
-        updates.push('industry = ?');
-        params.push(deal.industry);
-      }
-      if (deal.practice_group !== undefined) {
-        updates.push('practice_group = ?');
-        params.push(deal.practice_group);
+      if (deal.jurisdiction !== undefined) {
+        updates.push('jurisdiction = ?');
+        params.push(deal.jurisdiction);
       }
       if (deal.deal_date !== undefined) {
         updates.push('deal_date = ?');
         params.push(deal.deal_date);
       }
-      if (deal.deal_description !== undefined) {
-        updates.push('deal_description = ?');
-        params.push(deal.deal_description);
+      if (deal.signing_date !== undefined) {
+        updates.push('signing_date = ?');
+        params.push(deal.signing_date);
       }
-      if (deal.deal_type !== undefined) {
-        updates.push('deal_type = ?');
-        params.push(deal.deal_type);
+      if (deal.completion_date !== undefined) {
+        updates.push('completion_date = ?');
+        params.push(deal.completion_date);
       }
-      if (deal.source_system !== undefined) {
-        updates.push('source_system = ?');
-        params.push(deal.source_system);
+      if (deal.past_clients !== undefined) {
+        updates.push('past_clients = ?');
+        params.push(deal.past_clients);
+      }
+      if (deal.deal_industry !== undefined) {
+        updates.push('deal_industry = ?');
+        params.push(deal.deal_industry);
+      }
+      if (deal.remarks !== undefined) {
+        updates.push('remarks = ?');
+        params.push(deal.remarks);
+      }
+      if (deal.partner_approval !== undefined) {
+        updates.push('partner_approval = ?');
+        params.push(deal.partner_approval);
+      }
+      if (deal.partner_initial !== undefined) {
+        updates.push('partner_initial = ?');
+        params.push(deal.partner_initial);
       }
 
       if (updates.length === 0) {
@@ -184,17 +214,7 @@ class DealRepository {
         );
         return result.affectedRows > 0;
       } else {
-        // Hard delete (check for references)
-        const [refs] = await pool.execute(
-          'SELECT COUNT(*) as count FROM deal_lawyers WHERE deal_id = ?',
-          [id]
-        );
-        if (refs[0].count > 0) {
-          const error = new Error('Cannot delete deal: has associated lawyers');
-          error.statusCode = 400;
-          throw error;
-        }
-
+        // Hard delete; deal_lawyers and deal_awards use ON DELETE CASCADE
         const [result] = await pool.execute('DELETE FROM deals WHERE id = ?', [id]);
         return result.affectedRows > 0;
       }
@@ -203,14 +223,6 @@ class DealRepository {
       throw error;
     }
   }
-
-  async findByIds(ids = []) {
-  if (!ids.length) return []
-  const placeholders = ids.map(() => '?').join(',')
-  const query = `SELECT * FROM lawyers WHERE id IN (${placeholders})`
-  const [rows] = await pool.execute(query, ids)
-  return rows
-}
 
 }
 

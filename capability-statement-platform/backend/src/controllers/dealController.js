@@ -3,10 +3,8 @@ import dealService from '../services/dealService.js';
 class DealController {
   async getDeals(req, res) {
     const filters = {
-      industry: req.query.industry,
-      practice_group: req.query.practice_group,
-      deal_date: req.query.deal_date ? parseInt(req.query.deal_date, 10) : undefined,
-      source_system: req.query.source_system
+      deal_industry: req.query.deal_industry,
+      deal_date: req.query.deal_date || undefined
     };
 
     // Remove undefined filters

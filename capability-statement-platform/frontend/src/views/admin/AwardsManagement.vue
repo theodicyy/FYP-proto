@@ -59,7 +59,7 @@
         <h3 class="empty-state-title">No awards found</h3>
         <p class="empty-state-description">Add an award or adjust your filters.</p>
       </div>
-      <div v-else class="overflow-x-auto">
+      <div v-else class="crud-table-wrap">
         <table class="table">
           <thead>
             <tr>
@@ -67,7 +67,7 @@
               <th>Organization</th>
               <th>Year</th>
               <th>Category</th>
-              <th class="text-right">Actions</th>
+              <th class="crud-actions-col">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -79,10 +79,18 @@
                 <span v-if="award.category" class="badge badge-secondary">{{ award.category }}</span>
                 <span v-else class="text-secondary-400">-</span>
               </td>
-              <td>
-                <div class="flex items-center justify-end gap-2">
-                  <button @click="editAward(award)" class="btn btn-ghost btn-sm text-primary-600">Edit</button>
-                  <button @click="confirmDelete(award)" class="btn btn-ghost btn-sm text-red-600">Delete</button>
+              <td class="crud-actions-col">
+                <div class="crud-actions">
+                  <button type="button" @click="editAward(award)" class="crud-btn crud-btn-edit" title="Edit" aria-label="Edit">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                    </svg>
+                  </button>
+                  <button type="button" @click="confirmDelete(award)" class="crud-btn crud-btn-delete" title="Delete" aria-label="Delete">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </button>
                 </div>
               </td>
             </tr>
@@ -268,9 +276,7 @@ function buildPayload() {
     award_year: f.award_year != null ? f.award_year : null,
     category: f.category || null,
     description: f.description || null,
-    practice_group: null,
-    industry: null,
-    source_system: 'admin'
+    publications: f.publications || null
   }
 }
 

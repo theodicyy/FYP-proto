@@ -3,10 +3,7 @@ import awardService from '../services/awardService.js';
 class AwardController {
   async getAwards(req, res) {
     const filters = {
-      industry: req.query.industry,
-      practice_group: req.query.practice_group,
-      award_year: req.query.award_year ? parseInt(req.query.award_year, 10) : undefined,
-      source_system: req.query.source_system
+      award_year: req.query.award_year ? parseInt(req.query.award_year, 10) : undefined
     };
 
     // Remove undefined filters

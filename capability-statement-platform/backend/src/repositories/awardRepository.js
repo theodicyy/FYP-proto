@@ -7,24 +7,9 @@ class AwardRepository {
       let query = 'SELECT * FROM awards WHERE 1=1';
       const params = [];
 
-      if (filters.industry) {
-        query += ' AND industry = ?';
-        params.push(filters.industry);
-      }
-
-      if (filters.practice_group) {
-        query += ' AND practice_group = ?';
-        params.push(filters.practice_group);
-      }
-
-      if (filters.award_year) {
+      if (filters.award_year != null && filters.award_year !== '') {
         query += ' AND award_year = ?';
         params.push(filters.award_year);
-      }
-
-      if (filters.source_system) {
-        query += ' AND source_system = ?';
-        params.push(filters.source_system);
       }
 
       query += ' ORDER BY award_year DESC';
@@ -68,17 +53,15 @@ class AwardRepository {
   async create(award) {
     try {
       const [result] = await pool.execute(
-        `INSERT INTO awards (award_name, awarding_organization, award_year, category, practice_group, industry, description, source_system)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO awards (award_name, awarding_organization, award_year, category, description, publications)
+         VALUES (?, ?, ?, ?, ?, ?)`,
         [
           award.award_name,
           award.awarding_organization || null,
-          award.award_year || null,
+          award.award_year ?? null,
           award.category || null,
-          award.practice_group || null,
-          award.industry || null,
           award.description || null,
-          award.source_system || 'admin'
+          award.publications || null
         ]
       );
       return result.insertId;
@@ -109,21 +92,13 @@ class AwardRepository {
         updates.push('category = ?');
         params.push(award.category);
       }
-      if (award.practice_group !== undefined) {
-        updates.push('practice_group = ?');
-        params.push(award.practice_group);
-      }
-      if (award.industry !== undefined) {
-        updates.push('industry = ?');
-        params.push(award.industry);
-      }
       if (award.description !== undefined) {
         updates.push('description = ?');
         params.push(award.description);
       }
-      if (award.source_system !== undefined) {
-        updates.push('source_system = ?');
-        params.push(award.source_system);
+      if (award.publications !== undefined) {
+        updates.push('publications = ?');
+        params.push(award.publications);
       }
 
       if (updates.length === 0) {
@@ -162,7 +137,7 @@ class AwardRepository {
       } else {
         // Hard delete (check for references)
         const [refs] = await pool.execute(
-          'SELECT COUNT(*) as count FROM award_lawyers WHERE award_id = ?',
+          'SELECT COUNT(*) as count FROM lawyer_awards WHERE award_id = ?',
           [id]
         );
         if (refs[0].count > 0) {
@@ -180,16 +155,6 @@ class AwardRepository {
     }
   }
 
-  async findByIds(ids = []) {
-  if (!ids.length) return []
-  const placeholders = ids.map(() => '?').join(',')
-  const query = `SELECT * FROM lawyers WHERE id IN (${placeholders})`
-  const [rows] = await pool.execute(query, ids)
-  return rows
 }
-
-}
-
-
 
 export default new AwardRepository();

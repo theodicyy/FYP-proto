@@ -12,11 +12,6 @@ class LawyerRepository {
         params.push(filters.practice_group);
       }
 
-      if (filters.source_system) {
-        query += ' AND source_system = ?';
-        params.push(filters.source_system);
-      }
-
       query += ' ORDER BY last_name, first_name';
 
       const [rows] = await pool.execute(query, params);
@@ -59,17 +54,21 @@ class LawyerRepository {
   async create(lawyer) {
     try {
       const [result] = await pool.execute(
-        `INSERT INTO lawyers (first_name, last_name, email, practice_group, title, bio, years_experience, source_system)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO lawyers (first_name, last_name, email, practice_group, title, designation, lawyer_designation, phone, qualifications, admissions, bio, years_experience)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           lawyer.first_name,
           lawyer.last_name,
           lawyer.email || null,
           lawyer.practice_group || null,
           lawyer.title || null,
+          lawyer.designation || null,
+          lawyer.lawyer_designation || null,
+          lawyer.phone || null,
+          lawyer.qualifications || null,
+          lawyer.admissions || null,
           lawyer.bio || null,
-          lawyer.years_experience || null,
-          lawyer.source_system || 'admin'
+          lawyer.years_experience ?? null
         ]
       );
       return result.insertId;
@@ -104,6 +103,26 @@ class LawyerRepository {
         updates.push('title = ?');
         params.push(lawyer.title);
       }
+      if (lawyer.designation !== undefined) {
+        updates.push('designation = ?');
+        params.push(lawyer.designation);
+      }
+      if (lawyer.lawyer_designation !== undefined) {
+        updates.push('lawyer_designation = ?');
+        params.push(lawyer.lawyer_designation);
+      }
+      if (lawyer.phone !== undefined) {
+        updates.push('phone = ?');
+        params.push(lawyer.phone);
+      }
+      if (lawyer.qualifications !== undefined) {
+        updates.push('qualifications = ?');
+        params.push(lawyer.qualifications);
+      }
+      if (lawyer.admissions !== undefined) {
+        updates.push('admissions = ?');
+        params.push(lawyer.admissions);
+      }
       if (lawyer.bio !== undefined) {
         updates.push('bio = ?');
         params.push(lawyer.bio);
@@ -111,10 +130,6 @@ class LawyerRepository {
       if (lawyer.years_experience !== undefined) {
         updates.push('years_experience = ?');
         params.push(lawyer.years_experience);
-      }
-      if (lawyer.source_system !== undefined) {
-        updates.push('source_system = ?');
-        params.push(lawyer.source_system);
       }
 
       if (updates.length === 0) {
@@ -163,9 +178,9 @@ class LawyerRepository {
           throw error;
         }
 
-        // Check award_lawyers references
+        // Check lawyer_awards references
         const [awardRefs] = await pool.execute(
-          'SELECT COUNT(*) as count FROM award_lawyers WHERE lawyer_id = ?',
+          'SELECT COUNT(*) as count FROM lawyer_awards WHERE lawyer_id = ?',
           [id]
         );
         if (awardRefs[0].count > 0) {
@@ -194,11 +209,6 @@ class LawyerRepository {
       if (filters.practice_group) {
         query += ' AND practice_group = ?';
         params.push(filters.practice_group);
-      }
-
-      if (filters.source_system) {
-        query += ' AND source_system = ?';
-        params.push(filters.source_system);
       }
 
       if (filters.include_deleted) {
