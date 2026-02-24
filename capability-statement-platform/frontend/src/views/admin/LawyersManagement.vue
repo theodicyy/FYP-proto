@@ -124,83 +124,99 @@
     <!-- Create/Edit Modal -->
     <Teleport to="body">
       <Transition name="modal">
-        <div v-if="showCreateModal || editingLawyer" class="modal-overlay" @click.self="closeModal">
-          <div class="modal modal-lg">
-            <div class="modal-header">
+        <div v-if="showCreateModal || editingLawyer" class="lawyer-modal-overlay" @click.self="closeModal">
+          <div class="lawyer-modal">
+            <div class="lawyer-modal-header">
               <h3 class="text-lg font-semibold text-secondary-900">
                 {{ editingLawyer ? 'Edit Lawyer' : 'Add New Lawyer' }}
               </h3>
-              <button @click="closeModal" class="btn btn-ghost btn-sm">
+              <button type="button" @click="closeModal" class="lawyer-modal-close" aria-label="Close">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
             </div>
-            
-            <form @submit.prevent="saveLawyer">
-              <div class="modal-body space-y-4">
-                <p class="section-title mb-2">Name & contact</p>
-                <div class="grid grid-cols-2 gap-4">
-                  <div class="input-group">
-                    <label class="label">First name *</label>
-                    <input v-model="lawyerForm.first_name" type="text" required class="input" maxlength="100" />
-                  </div>
-                  <div class="input-group">
-                    <label class="label">Last name *</label>
-                    <input v-model="lawyerForm.last_name" type="text" required class="input" maxlength="100" />
-                  </div>
-                </div>
-                <div class="input-group">
-                  <label class="label">Email</label>
-                  <input v-model="lawyerForm.email" type="email" class="input" maxlength="191" />
-                </div>
-                <div class="input-group">
-                  <label class="label">Phone</label>
-                  <textarea v-model="lawyerForm.phone" rows="1" class="input" placeholder="Phone number(s)"></textarea>
-                </div>
 
-                <p class="section-title mb-2 mt-4">Role & practice</p>
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div class="input-group">
-                    <label class="label">Title</label>
-                    <input v-model="lawyerForm.title" type="text" class="input" maxlength="100" />
-                  </div>
-                  <div class="input-group">
-                    <label class="label">Designation</label>
-                    <input v-model="lawyerForm.designation" type="text" class="input" maxlength="100" />
-                  </div>
-                  <div class="input-group">
-                    <label class="label">Lawyer designation</label>
-                    <input v-model="lawyerForm.lawyer_designation" type="text" class="input" maxlength="255" />
-                  </div>
-                </div>
-                <div class="input-group">
-                  <label class="label">Practice group</label>
-                  <input v-model="lawyerForm.practice_group" type="text" class="input" maxlength="300" placeholder="e.g. Corporate, Litigation" />
-                </div>
-                <div class="input-group">
-                  <label class="label">Years of experience</label>
-                  <input v-model.number="lawyerForm.years_experience" type="number" min="0" class="input" />
-                </div>
+            <form @submit.prevent="saveLawyer" class="lawyer-modal-form">
+              <div class="lawyer-modal-body">
+                <p
+                  v-if="formError"
+                  class="lawyer-form-error"
+                  role="alert"
+                >
+                  {{ formError }}
+                </p>
 
-                <p class="section-title mb-2 mt-4">Qualifications & admissions</p>
-                <div class="input-group">
-                  <label class="label">Qualifications</label>
-                  <textarea v-model="lawyerForm.qualifications" rows="2" class="input" placeholder="Education, degrees"></textarea>
-                </div>
-                <div class="input-group">
-                  <label class="label">Admissions</label>
-                  <textarea v-model="lawyerForm.admissions" rows="1" class="input" placeholder="Bar admissions"></textarea>
-                </div>
+                <section class="lawyer-form-section">
+                  <h4 class="lawyer-form-section-title">Name & contact</h4>
+                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div class="input-group">
+                      <label class="label" for="lawyer-first">First name <span class="text-red-500">*</span></label>
+                      <input id="lawyer-first" v-model="lawyerForm.first_name" type="text" required class="input" maxlength="100" placeholder="e.g. Jane" />
+                    </div>
+                    <div class="input-group">
+                      <label class="label" for="lawyer-last">Last name <span class="text-red-500">*</span></label>
+                      <input id="lawyer-last" v-model="lawyerForm.last_name" type="text" required class="input" maxlength="100" placeholder="e.g. Tan" />
+                    </div>
+                  </div>
+                  <div class="input-group">
+                    <label class="label" for="lawyer-email">Email</label>
+                    <input id="lawyer-email" v-model="lawyerForm.email" type="email" class="input" maxlength="191" placeholder="e.g. jane.tan@firm.com" />
+                  </div>
+                  <div class="input-group">
+                    <label class="label" for="lawyer-phone">Phone</label>
+                    <input id="lawyer-phone" v-model="lawyerForm.phone" type="text" class="input" placeholder="e.g. +65 6123 4567" />
+                  </div>
+                </section>
 
-                <p class="section-title mb-2 mt-4">Bio</p>
-                <div class="input-group">
-                  <label class="label">Bio</label>
-                  <textarea v-model="lawyerForm.bio" rows="3" class="input" placeholder="Short biography"></textarea>
-                </div>
+                <section class="lawyer-form-section">
+                  <h4 class="lawyer-form-section-title">Role & practice</h4>
+                  <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div class="input-group">
+                      <label class="label" for="lawyer-title">Title</label>
+                      <input id="lawyer-title" v-model="lawyerForm.title" type="text" class="input" maxlength="100" placeholder="e.g. Partner" />
+                    </div>
+                    <div class="input-group">
+                      <label class="label" for="lawyer-designation">Designation</label>
+                      <input id="lawyer-designation" v-model="lawyerForm.designation" type="text" class="input" maxlength="100" />
+                    </div>
+                    <div class="input-group">
+                      <label class="label" for="lawyer-lawyer-designation">Lawyer designation</label>
+                      <input id="lawyer-lawyer-designation" v-model="lawyerForm.lawyer_designation" type="text" class="input" maxlength="255" />
+                    </div>
+                  </div>
+                  <div class="input-group">
+                    <label class="label" for="lawyer-practice">Practice group</label>
+                    <input id="lawyer-practice" v-model="lawyerForm.practice_group" type="text" class="input" maxlength="300" placeholder="e.g. Corporate, Litigation" />
+                  </div>
+                  <div class="input-group lawyer-years-field">
+                    <label class="label" for="lawyer-years">Years of experience</label>
+                    <input id="lawyer-years" v-model.number="lawyerForm.years_experience" type="number" min="0" class="input" placeholder="—" />
+                  </div>
+                </section>
+
+                <section class="lawyer-form-section">
+                  <h4 class="lawyer-form-section-title">Qualifications & admissions</h4>
+                  <div class="input-group">
+                    <label class="label" for="lawyer-qualifications">Qualifications</label>
+                    <textarea id="lawyer-qualifications" v-model="lawyerForm.qualifications" rows="2" class="input" placeholder="Education, degrees"></textarea>
+                  </div>
+                  <div class="input-group">
+                    <label class="label" for="lawyer-admissions">Admissions</label>
+                    <textarea id="lawyer-admissions" v-model="lawyerForm.admissions" rows="1" class="input" placeholder="Bar admissions"></textarea>
+                  </div>
+                </section>
+
+                <section class="lawyer-form-section">
+                  <h4 class="lawyer-form-section-title">Bio</h4>
+                  <div class="input-group">
+                    <label class="label" for="lawyer-bio">Short biography</label>
+                    <textarea id="lawyer-bio" v-model="lawyerForm.bio" rows="3" class="input" placeholder="Brief professional summary"></textarea>
+                  </div>
+                </section>
               </div>
-              
-              <div class="modal-footer">
+
+              <div class="lawyer-modal-footer">
                 <button type="button" @click="closeModal" class="btn btn-secondary">Cancel</button>
                 <button type="submit" class="btn btn-primary" :disabled="saving">
                   {{ saving ? 'Saving...' : 'Save Lawyer' }}
@@ -259,6 +275,7 @@ const filterPracticeGroup = ref('')
 const showCreateModal = ref(false)
 const editingLawyer = ref(null)
 const lawyerToDelete = ref(null)
+const formError = ref('')
 
 const lawyerForm = ref({
   first_name: '',
@@ -281,9 +298,9 @@ const filteredLawyers = computed(() => {
   if (searchQuery.value) {
     const query = searchQuery.value.toLowerCase()
     filtered = filtered.filter(l => 
-      l.first_name.toLowerCase().includes(query) ||
-      l.last_name.toLowerCase().includes(query) ||
-      (l.email && l.email.toLowerCase().includes(query))
+      (l.first_name || '').toLowerCase().includes(query) ||
+      (l.last_name || '').toLowerCase().includes(query) ||
+      (l.email || '').toLowerCase().includes(query)
     )
   }
   
@@ -340,6 +357,7 @@ function editLawyer(lawyer) {
 function closeModal() {
   showCreateModal.value = false
   editingLawyer.value = null
+  formError.value = ''
   lawyerForm.value = {
     first_name: '',
     last_name: '',
@@ -357,6 +375,20 @@ function closeModal() {
 }
 
 async function saveLawyer() {
+  formError.value = ''
+
+  const first = (lawyerForm.value.first_name || '').trim()
+  const last = (lawyerForm.value.last_name || '').trim()
+  if (!first || !last) {
+    formError.value = 'First name and last name are required.'
+    return
+  }
+
+  if (lawyerForm.value.years_experience != null && lawyerForm.value.years_experience < 0) {
+    formError.value = 'Years of experience cannot be negative.'
+    return
+  }
+
   saving.value = true
   try {
     const payload = { ...lawyerForm.value }
@@ -398,19 +430,134 @@ async function deleteLawyer() {
 </script>
 
 <style scoped>
-.section-title {
+/* Lawyer modal: constrained size, scrollable body, clear hierarchy */
+.lawyer-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background-color: rgba(84, 88, 91, 0.5);
+  backdrop-filter: blur(2px);
+}
+
+.lawyer-modal {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 36rem;
+  max-height: min(90vh, 720px);
+  background-color: var(--color-surface);
+  border-radius: 0.75rem;
+  box-shadow: var(--shadow-lg);
+  animation: lawyerModalIn 0.2s ease-out;
+}
+
+.lawyer-modal-header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.lawyer-modal-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem;
+  color: var(--color-text-light, #6b7280);
+  background: none;
+  border: none;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: color 0.15s, background-color 0.15s;
+}
+.lawyer-modal-close:hover {
+  color: var(--color-text, #374151);
+  background-color: var(--color-neutral-light, #f3f4f6);
+}
+
+.lawyer-modal-form {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.lawyer-modal-body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 1rem 1.25rem 1.25rem;
+  -webkit-overflow-scrolling: touch;
+}
+
+.lawyer-form-error {
+  font-size: 0.875rem;
+  color: #b91c1c;
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.lawyer-form-section {
+  margin-bottom: 1.5rem;
+}
+.lawyer-form-section:last-child {
+  margin-bottom: 0;
+}
+
+.lawyer-form-section-title {
   font-size: 0.8125rem;
   font-weight: 600;
   color: var(--color-text-light, #6b7280);
   letter-spacing: 0.02em;
+  margin: 0 0 0.75rem 0;
+  padding-bottom: 0.25rem;
 }
-.modal-enter-active, .modal-leave-active {
-  transition: all 0.3s ease;
+
+.lawyer-years-field {
+  max-width: 8rem;
 }
-.modal-enter-from, .modal-leave-to {
+
+.lawyer-modal-footer {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  border-top: 1px solid var(--color-border);
+  background-color: var(--color-neutral-light, #f9fafb);
+  border-radius: 0 0 0.75rem 0.75rem;
+}
+
+@keyframes lawyerModalIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.modal-enter-active,
+.modal-leave-active {
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+.modal-enter-from,
+.modal-leave-to {
   opacity: 0;
 }
-.modal-enter-from .modal, .modal-leave-to .modal {
-  transform: scale(0.95) translateY(10px);
+.modal-enter-from .lawyer-modal,
+.modal-leave-to .lawyer-modal {
+  transform: scale(0.96) translateY(-8px);
 }
 </style>
