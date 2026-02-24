@@ -1,21 +1,38 @@
--- Auto-generated insert script (cleaned) for capability_statement_db
--- Uses ONLY: 12 deals (first 12 sheets) + all lawyers rows + all awards rows from provided files.
--- Generated on 2026-02-17T11:38:10.255272Z
+-- ============================================================
+-- Capability Statement Platform - Data (all inserts)
+-- Run after schema.sql. Appends/replaces all data for the DB.
+-- ============================================================
 
 USE capability_statement_db;
 
-SET FOREIGN_KEY_CHECKS=0;
-TRUNCATE TABLE deal_awards;
-TRUNCATE TABLE deal_lawyers;
-TRUNCATE TABLE lawyer_awards;
-TRUNCATE TABLE deals;
-TRUNCATE TABLE awards;
-TRUNCATE TABLE lawyers;
-SET FOREIGN_KEY_CHECKS=1;
+-- Clear tables in dependency order (child tables first). Uses DELETE so it works with foreign keys.
+-- Do not use TRUNCATE on deals/lawyers/awards here; they are referenced by other tables.
+DELETE FROM deal_awards;
+DELETE FROM deal_lawyers;
+DELETE FROM lawyer_awards;
+DELETE FROM deals;
+DELETE FROM awards;
+DELETE FROM lawyers;
+
+-- Reset auto-increment so new rows get ids starting from 1
+ALTER TABLE deals AUTO_INCREMENT = 1;
+ALTER TABLE awards AUTO_INCREMENT = 1;
+ALTER TABLE lawyers AUTO_INCREMENT = 1;
 
 START TRANSACTION;
 
--- Insert lawyers (128 rows)
+-- ======================
+-- USERS (seed)
+-- ======================
+INSERT INTO users (email, password_hash, first_name, last_name, role_type)
+VALUES
+('admin@lawfirm.com', '$2b$10$IgnDq53RVBLdLvlMEqEV4uoGH7pv9NxPGjvzUNtiBcaYV2tzPKwx6', 'Admin', 'User', 'admin'),
+('associate@lawfirm.com', '$2b$10$lHNjd8.21I2g9wT5JBylGuyatDnaRHgCk1xWWs6dwhvplaZjdpX7m', 'Associate', 'User', 'associate')
+ON DUPLICATE KEY UPDATE email = email;
+
+-- ======================
+-- LAWYERS
+-- ======================
 INSERT INTO lawyers (first_name, last_name, email, practice_group, title, designation, lawyer_designation, phone, qualifications, admissions, bio, years_experience) VALUES
 ('Adnaan', 'NOOR', 'adnaan.noor@wongpartnership.com', 'Restructuring & Insolvency, Special Situations Advisory, Indonesia', 'Partner', 'Partner', 'Partner', '+65 6416 2477', 'Singapore Management University (LL.B., Hons.)', NULL, NULL, NULL),
 ('Alessa', 'PANG', 'alessa.pang@wongpartnership.com', 'Commercial & Corporate Disputes, International Arbitration, Shipping, International Trade & Commodities Disputes', 'Partner', 'Partner', 'Partner', '+65 64168107', 'National University of Singapore (LL.B., Hons.)', NULL, NULL, NULL),
@@ -148,8 +165,9 @@ National University of Singapore (LL.B., Hons.)', NULL, NULL, NULL),
 ('Wendy', 'LIN', 'wendy.lin@wongpartnership.com', 'Asset Recovery & International Enforcement, Commercial & Corporate Disputes, International Arbitration, Philippines, Thailand', 'Partner', 'Partner', 'Partner', '+65 6416 8181', 'National University of Singapore (LL.B., Hons.)', NULL, NULL, NULL);
 
 -- Insert awards (36 rows)
--- Insert awards (36 rows - updated)
-
+-- ======================
+-- AWARDS
+-- ======================
 INSERT INTO awards
 (award_name, awarding_organization, award_year, category, description, award_pg, publications)
 VALUES
@@ -332,7 +350,10 @@ NULL),
 NULL,
 CAST('["General"]' AS JSON),
 NULL);
--- Insert deals (12 rows)
+
+-- ======================
+-- DEALS
+-- ======================
 INSERT INTO deals (deal_name, client_name, deal_summary, significant_features, notability, notable_reason, acting_for, deal_value, currency, jurisdiction, deal_date, signing_date, completion_date, publicity_purposes, confidentiality, transaction_types, srb_related, pe_related, startup_or_vc_related, featured_other_areas, deal_pg, past_clients, remarks, partner_approval, partner_initial,deal_industry) VALUES
 ('Cryptocurrency Insolvency', 'Hodlnaut Pte Ltd (In Liquidation)', 'Acted for the Interim Judicial Managers and subsequently Liquidators of Hodlnaut Pte Ltd, a Singapore cryptocurrency lending platform, in multiple court proceedings including successfully resisting an application by the directors to remove them and obtaining a landmark ruling that cryptocurrency debts can be relied upon to wind up a company.', 'Landmark cryptocurrency insolvency case where the High Court held that obligations to repay cryptocurrency to account holders are "debts" within section 125(1)(e) of the Insolvency, Restructuring and Dissolution Act 2018, so that the company''s inability to pay such liabilities justified a winding up order; court also found that the halt on withdrawals did not extinguish or postpone those liabilities.', 'Yes', 'First Singapore judgment expressly confirming that cryptocurrency liabilities constitute debts for insolvency purposes and may be used to wind up a company, widely cited as a key precedent for regulation of crypto platforms in Singapore.', 'Advisors', 500000000, 'SGD', 'Singapore', '2022-08-29', '2023-11-09', '2023-11-10', CAST('["Linkedin", "Practice Brochures", "Capability Statement/Proposals", "Website"]' AS JSON), CAST('["Client/Party Names"]' AS JSON), CAST('["Corporate and Commercial"]' AS JSON), CAST('false' AS JSON), CAST('false' AS JSON), CAST('["Start-up"]' AS JSON), CAST('["Specialised Practices", "FinTech", "Regulatory", "Corporate & Regulatory Investigations"]' AS JSON), CAST('["Litigation & Dispute Resolution", "Restructuring & Insolvency", "Commercial & Corporate Disputes", "Regulatory", "Corporate & Regulatory Investigations", "Specialised Practices", "FinTech"]' AS JSON), 'Hodlnaut Pte Ltd (Interim Judicial Managers and Liquidators)', 'The company entered interim judicial management on 29 August 2022 and was ordered to be wound up on 10 November 2023; the court''s decision clarified that cryptocurrency obligations are relevant debts for assessing cash flow insolvency under section 125 IRDA, rejected arguments that only fiat-denominated claims qualify, and found that Hodlnaut''s liabilities to thousands of account holders and losses from the Terra/UST collapse rendered it unable to pay its debts.', 'Yes', 'AN','Cryptocurrency & Digital Assets'),
 ('Mexican Oil Rig Insolvency', 'Guerra Gonzalez y Asociados SC (Mexican law firm representing non-party Mexican attorney)', 'Lead counsel before the Court of Appeal for a Mexican attorney (Jesus Angel Guerra Mendez) to vary an injunction restraining insolvency proceedings (concurso mercantil) in Mexico concerning the Oro Negro drilling rig group and six Singapore-incorporated rig-owning companies.', 'Court of Appeal decision examining whether Singapore injunctions restraining Mexican insolvency proceedings constituted anti-suit injunctions; involved complex cross-border insolvency dispute concerning USD 725 million bond default, Pemex charter contracts, and competing Mexican and Singapore insolvency processes; Court examined jurisdictional issues and anti-suit injunction principles.', 'Yes', 'Significant Court of Appeal decision on anti-suit injunctions and cross-border insolvency restraint principles; Court cast doubt on legal possibility of service out of jurisdiction where Singapore is not natural forum but substantial injustice alleged; precedent for conflicts between concurrent insolvency proceedings in multiple jurisdictions.', 'Offerees', 725000000, 'USD', 'Singapore, Mexico', '2017-09-01', '2019-11-26', '2019-11-26', CAST('["Practice Brochures", "Capability Statement/Proposals"]' AS JSON), CAST('["Client/Party Names"]' AS JSON), CAST('["Corporate and Commercial"]' AS JSON), CAST('false' AS JSON), CAST('false' AS JSON), CAST('false' AS JSON), CAST('["International Practices"]' AS JSON), CAST('["Litigation & Dispute Resolution", "Asset Recovery & International Enforcement", "Restructuring & Insolvency", "International Practices"]' AS JSON), 'Jesus Angel Guerra Mendez (Mexican attorney, non-party)', 'Dispute arose from default on USD 725 million bond issued by Oro Negro Drilling Pte Ltd following collapse in oil prices and termination of Pemex charter contracts worth USD 1.5 billion; six Singapore-incorporated rig-owning companies and Mexican parent company Integradora de Servicios Petroleros Oro Negro SAPI de CV all became insolvent in September 2017; competing insolvency processes initiated in Mexico (concurso mercantil) and Singapore; bondholders obtained Singapore injunctions restraining Mexican attorney from initiating Mexican proceedings.', 'Yes', 'AN','Oil & Gas Services'),
@@ -370,7 +391,9 @@ INSERT INTO deals (deal_name, client_name, deal_summary, significant_features, n
 --   deal_id 14: Low Kah Keong (Partner)
 --   deal_id 15: Samuel Navindran (Partner)
 
--- Insert deal_lawyers (3 rows) [derived from wongp_lawyers_* columns]
+-- ======================
+-- RELATION TABLES (deal_lawyers, deal_awards, lawyer_awards)
+-- ======================
 INSERT INTO deal_lawyers (deal_id, lawyer_id, role) VALUES
 (1, 1, 'Partner'),
 (2, 1, 'Partner'),
