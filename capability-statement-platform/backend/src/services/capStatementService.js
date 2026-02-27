@@ -209,43 +209,86 @@ const normalizePG = (pg) => {
     }
 
     // =====================================================
-    // TOP 3 FROM MAIN PRACTICE AREA
+    // DEAL TABLE GROUPS (reactive: 1 table per 3 deals)
+    // Uses the deals the user explicitly selected via dealIds.
+    // 1–3 deals → 1 table, 4–6 deals → 2 tables, etc.
     // =====================================================
-    const main_pg_deals = deals
-      .filter(d => normalizePG(d.deal_pg).includes(main_practice_area))
-      .slice(0, 3)
-
-    const pg_client_name1 = main_pg_deals[0]?.client_name || ''
-    const pg_client_name2 = main_pg_deals[1]?.client_name || ''
-    const pg_client_name3 = main_pg_deals[2]?.client_name || ''
-
-    const deal_desc_pg1 = main_pg_deals[0]?.deal_summary || ''
-    const deal_desc_pg2 = main_pg_deals[1]?.deal_summary || ''
-    const deal_desc_pg3 = main_pg_deals[2]?.deal_summary || ''
+    const deal_table_groups = []
+    for (let i = 0; i < deals.length; i += 3) {
+      const chunk = deals.slice(i, i + 3)
+      deal_table_groups.push({
+        col1_name: chunk[0]?.client_name  || '',
+        col1_desc: chunk[0]?.deal_summary || '',
+        col2_name: chunk[1]?.client_name  || '',
+        col2_desc: chunk[1]?.deal_summary || '',
+        col3_name: chunk[2]?.client_name  || '',
+        col3_desc: chunk[2]?.deal_summary || '',
+      })
+    }
 
     // =====================================================
-    // FRONTEND SELECTED PRACTICE GROUPS
+    // FRONTEND SELECTED PRACTICE GROUPS → HIGHLIGHTS TABLE GROUPS
+    // =====================================================
+    // Uses selected deals directly. The practice area label shown in the
+    // grey row comes from deal_pg (or deal_industry as fallback).
+    // If practice_list is provided by the frontend, use that for labels
+    // and match deals; otherwise derive labels from the deals themselves.
+    // Groups of 3 → one pair of tables. 1–3 = 1 group, 4–6 = 2 groups.
     // =====================================================
 
-    const selectedPGs = (manualFields.practice_list || []).slice(0, 3)
-
-    const deals_pg1 = selectedPGs[0] || ''
-    const deals_pg2 = selectedPGs[1] || ''
-    const deals_pg3 = selectedPGs[2] || ''
+    const selectedPGs = manualFields.practice_list || []
 
     const findDealByPg = pg =>
       deals.find(d => normalizePG(d.deal_pg).includes(pg))
 
+    // Build highlight items: prefer practice_list mapping, fall back to deals directly
+    let highlightItems
+    if (selectedPGs.length > 0) {
+      highlightItems = selectedPGs.map(pg => {
+        const deal = findDealByPg(pg)
+        return {
+          pg:   pg || '',
+          name: deal?.client_name  || '',
+          desc: deal?.deal_summary || '',
+        }
+      })
+    } else {
+      // No practice_list — derive from selected deals using their deal_pg as label
+      highlightItems = deals.map(d => ({
+        pg:   normalizePG(d.deal_pg)[0] || d.deal_industry || '',
+        name: d.client_name  || '',
+        desc: d.deal_summary || '',
+      }))
+    }
+
+    // Chunk into groups of 3
+    const highlights_table_groups = []
+    for (let i = 0; i < highlightItems.length; i += 3) {
+      const chunk = highlightItems.slice(i, i + 3)
+      highlights_table_groups.push({
+        col1_pg:   chunk[0]?.pg   || '',
+        col1_name: chunk[0]?.name || '',
+        col1_desc: chunk[0]?.desc || '',
+        col2_pg:   chunk[1]?.pg   || '',
+        col2_name: chunk[1]?.name || '',
+        col2_desc: chunk[1]?.desc || '',
+        col3_pg:   chunk[2]?.pg   || '',
+        col3_name: chunk[2]?.name || '',
+        col3_desc: chunk[2]?.desc || '',
+      })
+    }
+
+    // Legacy scalar vars kept for backward-compat
+    const deals_pg1 = selectedPGs[0] || ''
+    const deals_pg2 = selectedPGs[1] || ''
+    const deals_pg3 = selectedPGs[2] || ''
     const h1 = findDealByPg(deals_pg1)
     const h2 = findDealByPg(deals_pg2)
     const h3 = findDealByPg(deals_pg3)
-
     const highlights_name_pg1 = h1?.client_name || ''
     const highlights_desc_pg1 = h1?.deal_summary || ''
-
     const highlights_name_pg2 = h2?.client_name || ''
     const highlights_desc_pg2 = h2?.deal_summary || ''
-
     const highlights_name_pg3 = h3?.client_name || ''
     const highlights_desc_pg3 = h3?.deal_summary || ''
 
@@ -367,14 +410,10 @@ const awards_list = [
 
       deal_rows,
       deal_pg_groups,
+      deal_table_groups,
+      highlights_table_groups,
 
-      pg_client_name1,
-      pg_client_name2,
-      pg_client_name3,
 
-      deal_desc_pg1,
-      deal_desc_pg2,
-      deal_desc_pg3,
 
       deals_pg1,
       deals_pg2,
