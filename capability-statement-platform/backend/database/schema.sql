@@ -99,6 +99,8 @@ CREATE TABLE lawyers (
   admissions TEXT,
   bio TEXT,
   years_experience INT,
+  lawyer_awards TEXT,
+  awarding_org TEXT,
 
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
@@ -143,6 +145,7 @@ CREATE TABLE deals (
   remarks TEXT,
   partner_approval ENUM('Yes','No'),
   partner_initial VARCHAR(20),
+  laywer_name VARCHAR(255),
 
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
