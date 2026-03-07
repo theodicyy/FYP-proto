@@ -89,6 +89,31 @@
       </div>
     </Transition>
 
+    <!-- Tab search: live filter on every keystroke, current tab only -->
+    <div class="card mb-4">
+      <div class="flex flex-col sm:flex-row sm:items-center gap-3">
+        <div class="flex-1">
+          <label for="aggregation-search" class="sr-only">Search {{ activeTab }}</label>
+          <input
+            id="aggregation-search"
+            v-model="searchQuery"
+            type="text"
+            :placeholder="searchPlaceholder"
+            class="input w-full"
+            aria-label="Search"
+          />
+        </div>
+        <button
+          v-if="searchTerm"
+          type="button"
+          @click="clearSearch"
+          class="btn btn-secondary flex-shrink-0"
+        >
+          Clear
+        </button>
+      </div>
+    </div>
+
     <!-- Tabs -->
     <div class="tabs-underline mb-6">
       <button
@@ -117,12 +142,12 @@
         <div class="spinner mx-auto mb-4"></div>
         <p class="text-secondary-500">Loading lawyers...</p>
       </div>
-      <div v-else-if="dataStore.lawyers.length === 0" class="empty-state">
+      <div v-else-if="filteredLawyers.length === 0" class="empty-state">
         <svg class="empty-state-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
         </svg>
-        <h3 class="empty-state-title">No lawyers found</h3>
-        <p class="empty-state-description">Try adjusting your filters or add lawyers to the database.</p>
+        <h3 class="empty-state-title">{{ searchTerm ? 'No lawyers match your search' : 'No lawyers found' }}</h3>
+        <p class="empty-state-description">{{ searchTerm ? 'Try a different search term or clear the search.' : 'Try adjusting your filters or add lawyers to the database.' }}</p>
       </div>
       <div v-else class="overflow-x-auto">
         <table class="table">
@@ -145,7 +170,7 @@
           </thead>
           <tbody>
             <tr
-              v-for="lawyer in dataStore.lawyers"
+              v-for="lawyer in filteredLawyers"
               :key="lawyer.id"
               @click="dataStore.toggleLawyerSelection(lawyer)"
               class="cursor-pointer"
@@ -168,7 +193,16 @@
                 </div>
               </td>
               <td>
-                <span class="badge badge-secondary">{{ lawyer.practice_group }}</span>
+                <div class="practice-group-pills">
+                  <template v-if="parsePracticeGroups(lawyer).length">
+                    <span
+                      v-for="(pg, idx) in parsePracticeGroups(lawyer)"
+                      :key="idx"
+                      class="practice-group-pill"
+                    >{{ pg }}</span>
+                  </template>
+                  <span v-else class="practice-group-empty">—</span>
+                </div>
               </td>
               <td>{{ lawyer.title }}</td>
               <td>{{ lawyer.years_experience }} years</td>
@@ -184,12 +218,12 @@
         <div class="spinner mx-auto mb-4"></div>
         <p class="text-secondary-500">Loading deals...</p>
       </div>
-      <div v-else-if="dataStore.deals.length === 0" class="empty-state">
+      <div v-else-if="filteredDeals.length === 0" class="empty-state">
         <svg class="empty-state-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
         </svg>
-        <h3 class="empty-state-title">No deals found</h3>
-        <p class="empty-state-description">Try adjusting your filters or add deals to the database.</p>
+        <h3 class="empty-state-title">{{ searchTerm ? 'No deals match your search' : 'No deals found' }}</h3>
+        <p class="empty-state-description">{{ searchTerm ? 'Try a different search term or clear the search.' : 'Try adjusting your filters or add deals to the database.' }}</p>
       </div>
       <div v-else class="overflow-x-auto">
         <table class="table">
@@ -213,7 +247,7 @@
           </thead>
           <tbody>
             <tr
-              v-for="deal in dataStore.deals"
+              v-for="deal in filteredDeals"
               :key="deal.id"
               @click="dataStore.toggleDealSelection(deal)"
               class="cursor-pointer"
@@ -248,12 +282,12 @@
         <div class="spinner mx-auto mb-4"></div>
         <p class="text-secondary-500">Loading awards...</p>
       </div>
-      <div v-else-if="dataStore.awards.length === 0" class="empty-state">
+      <div v-else-if="filteredAwards.length === 0" class="empty-state">
         <svg class="empty-state-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
         </svg>
-        <h3 class="empty-state-title">No awards found</h3>
-        <p class="empty-state-description">Try adjusting your filters or add awards to the database.</p>
+        <h3 class="empty-state-title">{{ searchTerm ? 'No awards match your search' : 'No awards found' }}</h3>
+        <p class="empty-state-description">{{ searchTerm ? 'Try a different search term or clear the search.' : 'Try adjusting your filters or add awards to the database.' }}</p>
       </div>
       <div v-else class="overflow-x-auto">
         <table class="table">
@@ -276,7 +310,7 @@
           </thead>
           <tbody>
             <tr
-              v-for="award in dataStore.awards"
+              v-for="award in filteredAwards"
               :key="award.id"
               @click="dataStore.toggleAwardSelection(award)"
               class="cursor-pointer"
@@ -326,10 +360,76 @@ function continueToConfig() {
 
 const dataStore = useDataStore()
 const activeTab = ref('lawyers')
+const searchQuery = ref('')
 const localFilters = ref({
   practice_group: '',
   industry: '',
   year: null
+})
+
+// Live search: filter on every keystroke (trimmed term), current tab only; source data unchanged
+const searchTerm = computed(() => (searchQuery.value || '').trim())
+function clearSearch() {
+  searchQuery.value = ''
+}
+const searchPlaceholder = computed(() => {
+  if (activeTab.value === 'lawyers') return 'Search by name, practice group, title...'
+  if (activeTab.value === 'deals') return 'Search by deal name, client, industry, year...'
+  if (activeTab.value === 'awards') return 'Search by award name, organization, category, year...'
+  return 'Search'
+})
+
+function matchText(term, ...values) {
+  if (!term) return true
+  const q = term.toLowerCase()
+  return values.some(v => (v != null && String(v).toLowerCase().includes(q)))
+}
+
+/** Parse practice_group string (comma-separated) into trimmed array. Frontend-only, no schema change. */
+function parsePracticeGroups(lawyer) {
+  const raw = lawyer.practice_group ?? lawyer.practiceGroup ?? ''
+  if (!raw || typeof raw !== 'string') return []
+  return raw.split(',').map(s => s.trim()).filter(Boolean)
+}
+
+/** Lawyer matches search if text fields match OR any practice group (after split/trim) contains the query (case-insensitive). */
+function lawyerMatchesSearch(lawyer, term) {
+  if (!term) return true
+  const q = term.toLowerCase()
+  if (matchText(term, lawyer.first_name, lawyer.last_name, lawyer.title, lawyer.email)) return true
+  const groups = parsePracticeGroups(lawyer)
+  return groups.some(pg => pg.toLowerCase().includes(q))
+}
+
+const filteredLawyers = computed(() => {
+  if (!searchTerm.value) return dataStore.lawyers
+  return dataStore.lawyers.filter(l => lawyerMatchesSearch(l, searchTerm.value))
+})
+const filteredDeals = computed(() => {
+  if (!searchTerm.value) return dataStore.deals
+  return dataStore.deals.filter(d =>
+    matchText(
+      searchTerm.value,
+      d.deal_name,
+      d.client_name,
+      d.industry,
+      d.deal_industry,
+      d.deal_year,
+      d.deal_value
+    )
+  )
+})
+const filteredAwards = computed(() => {
+  if (!searchTerm.value) return dataStore.awards
+  return dataStore.awards.filter(a =>
+    matchText(
+      searchTerm.value,
+      a.award_name,
+      a.awarding_organization,
+      a.category,
+      a.award_year
+    )
+  )
 })
 
 // Tab icons as render functions
@@ -349,24 +449,24 @@ const tabs = [
   { id: 'awards', label: 'Awards', icon: AwardsIcon }
 ]
 
-// Selection computed properties
+// Selection computed properties (based on filtered lists so "select all" matches visible rows)
 const allLawyersSelected = computed(() => {
-  return dataStore.lawyers.length > 0 && dataStore.lawyers.every(l => dataStore.isLawyerSelected(l))
+  return filteredLawyers.value.length > 0 && filteredLawyers.value.every(l => dataStore.isLawyerSelected(l))
 })
 const someLawyersSelected = computed(() => {
-  return dataStore.lawyers.some(l => dataStore.isLawyerSelected(l))
+  return filteredLawyers.value.some(l => dataStore.isLawyerSelected(l))
 })
 const allDealsSelected = computed(() => {
-  return dataStore.deals.length > 0 && dataStore.deals.every(d => dataStore.isDealSelected(d))
+  return filteredDeals.value.length > 0 && filteredDeals.value.every(d => dataStore.isDealSelected(d))
 })
 const someDealsSelected = computed(() => {
-  return dataStore.deals.some(d => dataStore.isDealSelected(d))
+  return filteredDeals.value.some(d => dataStore.isDealSelected(d))
 })
 const allAwardsSelected = computed(() => {
-  return dataStore.awards.length > 0 && dataStore.awards.every(a => dataStore.isAwardSelected(a))
+  return filteredAwards.value.length > 0 && filteredAwards.value.every(a => dataStore.isAwardSelected(a))
 })
 const someAwardsSelected = computed(() => {
-  return dataStore.awards.some(a => dataStore.isAwardSelected(a))
+  return filteredAwards.value.some(a => dataStore.isAwardSelected(a))
 })
 
 function getSelectionCount(tabId) {
@@ -377,38 +477,29 @@ function getSelectionCount(tabId) {
 }
 
 function toggleAllLawyers() {
+  const list = filteredLawyers.value
   if (allLawyersSelected.value) {
-    dataStore.lawyers.forEach(l => {
-      if (dataStore.isLawyerSelected(l)) dataStore.toggleLawyerSelection(l)
-    })
+    list.forEach(l => { if (dataStore.isLawyerSelected(l)) dataStore.toggleLawyerSelection(l) })
   } else {
-    dataStore.lawyers.forEach(l => {
-      if (!dataStore.isLawyerSelected(l)) dataStore.toggleLawyerSelection(l)
-    })
+    list.forEach(l => { if (!dataStore.isLawyerSelected(l)) dataStore.toggleLawyerSelection(l) })
   }
 }
 
 function toggleAllDeals() {
+  const list = filteredDeals.value
   if (allDealsSelected.value) {
-    dataStore.deals.forEach(d => {
-      if (dataStore.isDealSelected(d)) dataStore.toggleDealSelection(d)
-    })
+    list.forEach(d => { if (dataStore.isDealSelected(d)) dataStore.toggleDealSelection(d) })
   } else {
-    dataStore.deals.forEach(d => {
-      if (!dataStore.isDealSelected(d)) dataStore.toggleDealSelection(d)
-    })
+    list.forEach(d => { if (!dataStore.isDealSelected(d)) dataStore.toggleDealSelection(d) })
   }
 }
 
 function toggleAllAwards() {
+  const list = filteredAwards.value
   if (allAwardsSelected.value) {
-    dataStore.awards.forEach(a => {
-      if (dataStore.isAwardSelected(a)) dataStore.toggleAwardSelection(a)
-    })
+    list.forEach(a => { if (dataStore.isAwardSelected(a)) dataStore.toggleAwardSelection(a) })
   } else {
-    dataStore.awards.forEach(a => {
-      if (!dataStore.isAwardSelected(a)) dataStore.toggleAwardSelection(a)
-    })
+    list.forEach(a => { if (!dataStore.isAwardSelected(a)) dataStore.toggleAwardSelection(a) })
   }
 }
 
@@ -480,5 +571,30 @@ onMounted(async () => {
 .slide-leave-to {
   opacity: 0;
   transform: translateY(-10px);
+}
+
+/* Practice group pills: wrap, spacing, pill shape, light bg, subtle border */
+.practice-group-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem 0.5rem;
+  align-items: center;
+}
+.practice-group-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.2;
+  color: #54585B;
+  background-color: #f6f6f7;
+  border: 1px solid #ededee;
+  border-radius: 9999px;
+  white-space: nowrap;
+}
+.practice-group-empty {
+  color: #a0a1a4;
+  font-size: 0.875rem;
 }
 </style>
