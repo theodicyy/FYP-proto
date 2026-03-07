@@ -21,21 +21,25 @@
       <div class="flex flex-col lg:flex-row lg:items-end gap-4">
         <div class="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div class="input-group">
-            <label class="label">Practice Group</label>
-            <select v-model="localFilters.practice_group" @change="applyFilters" class="select">
+            <label class="label">Practice Group (Lawyers)</label>
+            <select v-model="practiceGroupFilter" class="select">
               <option value="">All Practice Groups</option>
-              <option value="Corporate Law">Corporate Law</option>
-              <option value="Intellectual Property">Intellectual Property</option>
-              <option value="Litigation">Litigation</option>
+              <option
+                v-for="pg in uniquePracticeGroups"
+                :key="pg"
+                :value="pg"
+              >{{ pg }}</option>
             </select>
           </div>
           <div class="input-group">
-            <label class="label">Industry</label>
-            <select v-model="localFilters.industry" @change="applyFilters" class="select">
+            <label class="label">Industry (Deals)</label>
+            <select v-model="industryFilter" class="select">
               <option value="">All Industries</option>
-              <option value="Technology">Technology</option>
-              <option value="Healthcare">Healthcare</option>
-              <option value="Manufacturing">Manufacturing</option>
+              <option
+                v-for="ind in uniqueIndustries"
+                :key="ind"
+                :value="ind"
+              >{{ ind }}</option>
             </select>
           </div>
           <div class="input-group">
@@ -222,8 +226,8 @@
         <svg class="empty-state-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
         </svg>
-        <h3 class="empty-state-title">{{ searchTerm ? 'No deals match your search' : 'No deals found' }}</h3>
-        <p class="empty-state-description">{{ searchTerm ? 'Try a different search term or clear the search.' : 'Try adjusting your filters or add deals to the database.' }}</p>
+        <h3 class="empty-state-title">{{ (searchTerm || industryFilter) ? 'No deals match your filters' : 'No deals found' }}</h3>
+        <p class="empty-state-description">{{ (searchTerm || industryFilter) ? 'Try a different search term or industry, or clear filters.' : 'Try adjusting your filters or add deals to the database.' }}</p>
       </div>
       <div v-else class="overflow-x-auto">
         <table class="table">
@@ -268,7 +272,7 @@
               </td>
               <td>{{ deal.deal_year }}</td>
               <td>
-                <span class="badge badge-info">{{ deal.industry }}</span>
+                <span class="badge badge-info">{{ String(deal.deal_industry ?? deal.industry ?? '').trim() || '—' }}</span>
               </td>
             </tr>
           </tbody>
@@ -361,9 +365,9 @@ function continueToConfig() {
 const dataStore = useDataStore()
 const activeTab = ref('lawyers')
 const searchQuery = ref('')
+const practiceGroupFilter = ref('')
+const industryFilter = ref('')
 const localFilters = ref({
-  practice_group: '',
-  industry: '',
   year: null
 })
 
@@ -401,23 +405,78 @@ function lawyerMatchesSearch(lawyer, term) {
   return groups.some(pg => pg.toLowerCase().includes(q))
 }
 
+/** True if lawyer belongs to the given practice group (case-insensitive). */
+function lawyerInPracticeGroup(lawyer, selectedGroup) {
+  if (!selectedGroup) return true
+  const groups = parsePracticeGroups(lawyer)
+  return groups.some(pg => pg.toLowerCase() === selectedGroup.toLowerCase())
+}
+
+/** Unique practice groups from current lawyers dataset: split by comma, trim, dedupe (case-insensitive), sorted. */
+const uniquePracticeGroups = computed(() => {
+  const seen = new Map()
+  for (const lawyer of dataStore.lawyers) {
+    for (const pg of parsePracticeGroups(lawyer)) {
+      const key = pg.toLowerCase()
+      if (!seen.has(key)) seen.set(key, pg)
+    }
+  }
+  return Array.from(seen.values()).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
+})
+
+/** Industry value for a deal (schema: deal_industry). */
+function getDealIndustry(deal) {
+  return String(deal.deal_industry ?? deal.industry ?? '').trim()
+}
+
+/** True if deal belongs to the given industry (case-insensitive). */
+function dealInIndustry(deal, selectedIndustry) {
+  if (!selectedIndustry) return true
+  const ind = getDealIndustry(deal)
+  return ind && ind.toLowerCase() === selectedIndustry.toLowerCase()
+}
+
+/** Unique industries from current deals dataset; dedupe case-insensitive, sorted. */
+const uniqueIndustries = computed(() => {
+  const seen = new Map()
+  for (const deal of dataStore.deals) {
+    const ind = getDealIndustry(deal)
+    if (!ind) continue
+    const key = ind.toLowerCase()
+    if (!seen.has(key)) seen.set(key, ind)
+  }
+  return Array.from(seen.values()).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
+})
+
 const filteredLawyers = computed(() => {
-  if (!searchTerm.value) return dataStore.lawyers
-  return dataStore.lawyers.filter(l => lawyerMatchesSearch(l, searchTerm.value))
+  let list = dataStore.lawyers
+  if (practiceGroupFilter.value) {
+    list = list.filter(l => lawyerInPracticeGroup(l, practiceGroupFilter.value))
+  }
+  if (searchTerm.value) {
+    list = list.filter(l => lawyerMatchesSearch(l, searchTerm.value))
+  }
+  return list
 })
 const filteredDeals = computed(() => {
-  if (!searchTerm.value) return dataStore.deals
-  return dataStore.deals.filter(d =>
-    matchText(
-      searchTerm.value,
-      d.deal_name,
-      d.client_name,
-      d.industry,
-      d.deal_industry,
-      d.deal_year,
-      d.deal_value
+  let list = dataStore.deals
+  if (industryFilter.value) {
+    list = list.filter(d => dealInIndustry(d, industryFilter.value))
+  }
+  if (searchTerm.value) {
+    list = list.filter(d =>
+      matchText(
+        searchTerm.value,
+        d.deal_name,
+        d.client_name,
+        d.industry,
+        d.deal_industry,
+        d.deal_year,
+        d.deal_value
+      )
     )
-  )
+  }
+  return list
 })
 const filteredAwards = computed(() => {
   if (!searchTerm.value) return dataStore.awards
@@ -505,12 +564,11 @@ function toggleAllAwards() {
 
 function applyFilters() {
   dataStore.updateFilters({
-    practice_group: localFilters.value.practice_group || null,
-    industry: localFilters.value.industry || null,
+    practice_group: null,
+    industry: null,
     deal_year: localFilters.value.year || null,
     award_year: localFilters.value.year || null
   })
-  
   if (activeTab.value === 'lawyers') {
     dataStore.fetchLawyers()
   } else if (activeTab.value === 'deals') {
@@ -521,9 +579,9 @@ function applyFilters() {
 }
 
 function clearFilters() {
+  practiceGroupFilter.value = ''
+  industryFilter.value = ''
   localFilters.value = {
-    practice_group: '',
-    industry: '',
     year: null
   }
   dataStore.updateFilters({
