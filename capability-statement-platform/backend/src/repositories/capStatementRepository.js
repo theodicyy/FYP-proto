@@ -44,17 +44,19 @@ class CapStatementRepository {
   async create(capStatement) {
     try {
       const [result] = await pool.execute(
-        `INSERT INTO cap_statements (title, description, status, created_by, created_by_user_id, template_id, generated_content, edited_content)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO cap_statements (title, description, status, created_by_user_id, template_id, generated_content, edited_content, file_path, client_name, matter_number)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           capStatement.title,
           capStatement.description || null,
           capStatement.status || 'draft',
-          capStatement.created_by || 'system',
           capStatement.created_by_user_id || null,
           capStatement.template_id || null,
           capStatement.generated_content || null,
-          capStatement.edited_content || null
+          capStatement.edited_content || null,
+          capStatement.file_path || null,
+          capStatement.client_name || null,
+          capStatement.matter_number || null
         ]
       );
       return result.insertId;
@@ -133,17 +135,14 @@ class CapStatementRepository {
     try {
       const [result] = await pool.execute(
         `INSERT INTO cap_statement_versions 
-         (cap_statement_id, version_number, version_name, content, settings, selected_deal_ids, selected_award_ids, selected_lawyer_ids)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+         (cap_statement_id, version_number, version_name, content, settings)
+         VALUES (?, ?, ?, ?, ?)`,
         [
           version.cap_statement_id,
           version.version_number,
           version.version_name || null,
           version.content,
-          JSON.stringify(version.settings || {}),
-          JSON.stringify(version.selected_deal_ids || []),
-          JSON.stringify(version.selected_award_ids || []),
-          JSON.stringify(version.selected_lawyer_ids || [])
+          JSON.stringify(version.settings || {})
         ]
       );
       return result.insertId;

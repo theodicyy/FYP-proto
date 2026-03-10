@@ -29,6 +29,87 @@
       </div>
     </Transition>
 
+    <!-- Search & Filter Bar -->
+    <div class="card mb-6">
+      <div class="flex flex-col sm:flex-row gap-3">
+        <!-- Search -->
+        <div class="flex-1 relative">
+          <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-secondary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          <input
+            v-model="searchQuery"
+            type="text"
+            placeholder="Search title, client or matter no..."
+            class="input pl-9 w-full"
+          />
+        </div>
+
+        <!-- Collapsible filters toggle (mobile) / inline filters (desktop) -->
+        <div class="flex items-center gap-2 flex-shrink-0">
+          <button
+            @click="showFilters = !showFilters"
+            class="btn btn-secondary btn-sm sm:hidden"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-.293.707L13 13.414V19a1 1 0 01-.553.894l-4 2A1 1 0 017 21v-7.586L3.293 6.707A1 1 0 013 6V4z" />
+            </svg>
+            Filters
+            <span v-if="activeFilterCount" class="ml-1 bg-primary-600 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">{{ activeFilterCount }}</span>
+          </button>
+
+          <!-- Desktop inline filters -->
+          <div class="hidden sm:flex items-center gap-2">
+            <select v-model="filterStatus" class="select text-sm py-2 px-3">
+              <option value="">All Statuses</option>
+              <option value="generated">Generated</option>
+              <option value="In Progress">In Progress</option>
+              <option value="Closed Won">Closed Won</option>
+              <option value="Closed Lost">Closed Lost</option>
+            </select>
+            <div class="flex items-center gap-1 text-secondary-400 text-sm">
+              <input v-model="filterDateFrom" type="date" class="input text-sm py-2 px-3 w-36" title="From date" />
+              <span>–</span>
+              <input v-model="filterDateTo" type="date" class="input text-sm py-2 px-3 w-36" title="To date" />
+            </div>
+            <button
+              v-if="activeFilterCount"
+              @click="clearFilters"
+              class="btn btn-ghost btn-sm text-secondary-400 hover:text-secondary-700 px-2"
+              title="Clear filters"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Mobile expanded filters -->
+      <div v-if="showFilters" class="sm:hidden mt-3 pt-3 border-t border-secondary-100 flex flex-col gap-2">
+        <select v-model="filterStatus" class="select text-sm">
+          <option value="">All Statuses</option>
+          <option value="generated">Generated</option>
+          <option value="In Progress">In Progress</option>
+          <option value="Closed Won">Closed Won</option>
+          <option value="Closed Lost">Closed Lost</option>
+        </select>
+        <div class="flex items-center gap-2">
+          <input v-model="filterDateFrom" type="date" class="input text-sm flex-1" title="From date" />
+          <span class="text-secondary-400">–</span>
+          <input v-model="filterDateTo" type="date" class="input text-sm flex-1" title="To date" />
+        </div>
+        <button v-if="activeFilterCount" @click="clearFilters" class="btn btn-ghost btn-sm text-secondary-500 self-start">
+          Clear filters
+        </button>
+      </div>
+
+      <p v-if="capStore.statements.length > 0" class="text-xs text-secondary-400 mt-3">
+        Showing {{ filteredStatements.length }} of {{ capStore.statements.length }} statement{{ capStore.statements.length !== 1 ? 's' : '' }}
+      </p>
+    </div>
+
     <!-- Statements Table -->
     <div class="card">
       <div v-if="capStore.loading" class="py-12 text-center">
@@ -45,11 +126,21 @@
           Create Statement
         </router-link>
       </div>
+      <div v-else-if="filteredStatements.length === 0" class="empty-state">
+        <svg class="empty-state-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        </svg>
+        <h3 class="empty-state-title">No results found</h3>
+        <p class="empty-state-description">Try adjusting your search or filters.</p>
+        <button @click="clearFilters" class="btn btn-secondary mt-4">Clear Filters</button>
+      </div>
       <div v-else class="overflow-x-auto">
         <table class="table">
           <thead>
             <tr>
               <th>Title</th>
+              <th>Client</th>
+              <th>Matter No.</th>
               <th>Status</th>
               <th>Created</th>
               <th>Version</th>
@@ -57,10 +148,12 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="statement in capStore.statements" :key="statement.id">
+            <tr v-for="statement in filteredStatements" :key="statement.id">
               <td>
                 <span class="font-medium text-secondary-900">{{ statement.title }}</span>
               </td>
+              <td class="text-secondary-500 text-sm">{{ statement.client_name || '—' }}</td>
+              <td class="text-secondary-500 text-sm">{{ statement.matter_number || '—' }}</td>
               <td>
                 <!-- Inline Status Editor -->
                 <div v-if="editingStatusId === statement.id" class="inline-block">
@@ -101,6 +194,17 @@
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                     </svg>
                     View
+                  </button>
+                  <button
+                    v-if="statement.file_path"
+                    @click="downloadDocx(statement)"
+                    class="btn btn-ghost btn-sm text-secondary-600 hover:text-secondary-800"
+                    title="Download original DOCX"
+                  >
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    DOCX
                   </button>
                   <button 
                     @click="confirmDelete(statement)" 
@@ -144,6 +248,17 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
                   Download PDF
+                </button>
+                <button
+                  v-if="viewingStatement?.file_path"
+                  @click="downloadDocx(viewingStatement)"
+                  class="btn btn-secondary btn-sm"
+                  title="Download original DOCX"
+                >
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  Download DOCX
                 </button>
                 <button 
                   @click="showSaveModal = true" 
@@ -250,7 +365,18 @@
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
-                  Download
+                  Download PDF
+                </button>
+                <button
+                  v-if="viewingStatement?.file_path"
+                  @click="downloadDocx(viewingStatement)"
+                  class="btn btn-secondary"
+                  title="Download original DOCX"
+                >
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  Download DOCX
                 </button>
               </div>
 
@@ -387,6 +513,50 @@ const statusSelectRef = ref(null)
 const editingVersionName = ref(false)
 const newVersionName = ref('')
 const versionNameInput = ref(null)
+
+// Search & filter state
+const searchQuery = ref('')
+const filterStatus = ref('')
+const filterDateFrom = ref('')
+const filterDateTo = ref('')
+const showFilters = ref(false)
+
+const activeFilterCount = computed(() =>
+  [filterStatus.value, filterDateFrom.value, filterDateTo.value].filter(Boolean).length
+)
+
+const filteredStatements = computed(() => {
+  let list = capStore.statements
+  const q = searchQuery.value.trim().toLowerCase()
+  if (q) {
+    list = list.filter(s =>
+      (s.title || '').toLowerCase().includes(q) ||
+      (s.client_name || '').toLowerCase().includes(q) ||
+      (s.matter_number || '').toLowerCase().includes(q)
+    )
+  }
+  if (filterStatus.value) {
+    list = list.filter(s => (s.status || '').toLowerCase() === filterStatus.value.toLowerCase())
+  }
+  if (filterDateFrom.value) {
+    const from = new Date(filterDateFrom.value)
+    list = list.filter(s => new Date(s.created_at) >= from)
+  }
+  if (filterDateTo.value) {
+    const to = new Date(filterDateTo.value)
+    to.setHours(23, 59, 59, 999)
+    list = list.filter(s => new Date(s.created_at) <= to)
+  }
+  return list
+})
+
+function clearFilters() {
+  searchQuery.value = ''
+  filterStatus.value = ''
+  filterDateFrom.value = ''
+  filterDateTo.value = ''
+  showFilters.value = false
+}
 
 const currentVersionContent = computed(() => {
   if (!viewingStatement.value) return ''
@@ -716,6 +886,23 @@ async function saveStatus(statementId) {
   } finally {
     editingStatusId.value = null
     editingStatusValue.value = null
+  }
+}
+
+async function downloadDocx(statement) {
+  try {
+    const response = await dataService.downloadDocx(statement.id)
+    const blob = new Blob([response.data], {
+      type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${statement.title || 'Capability_Statement'}.docx`
+    a.click()
+    URL.revokeObjectURL(url)
+  } catch (err) {
+    alert('Failed to download DOCX: ' + (err.response?.data?.error?.message || err.message))
   }
 }
 

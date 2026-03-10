@@ -86,6 +86,15 @@ router.get(
   })
 )
 
+router.get(
+  '/:id/download',
+  authenticate,
+  requireAssociateOrAdmin,
+  asyncHandler(async (req, res) => {
+    await capStatementController.downloadStatement(req, res)
+  })
+)
+
 router.put(
   '/:id',
   authenticate,

@@ -1,5 +1,6 @@
 import pool from '../config/database.js'
 import docGenerator from './docGenerator.js'
+import capStatementRepository from '../repositories/capStatementRepository.js'
 import { logger } from '../utils/logger.js'
 
 class CapStatementService {
@@ -429,6 +430,72 @@ const awards_list = [
       award_groups,
       awards_list
     }
+  }
+
+  // =====================================================
+  // CRUD
+  // =====================================================
+
+  async getStatements(filters = {}) {
+    const rows = await capStatementRepository.findAll(filters)
+    // Attach latest_version to each statement
+    const withVersions = await Promise.all(rows.map(async (s) => {
+      const latest = await capStatementRepository.getLatestVersion(s.id)
+      return { ...s, latest_version: latest || null }
+    }))
+    return withVersions
+  }
+
+  async getStatementById(id) {
+    const statement = await capStatementRepository.findById(id)
+    if (!statement) return null
+    const versions = await capStatementRepository.getVersionsByCapStatementId(id)
+    const latest = versions[0] || null
+    return { ...statement, versions, latest_version: latest }
+  }
+
+  async saveStatement(data, userId) {
+    const id = await capStatementRepository.create({
+      title: data.title,
+      description: data.description || null,
+      status: data.status || 'draft',
+      created_by_user_id: userId || null,
+      generated_content: typeof data.content === 'object' ? JSON.stringify(data.content) : (data.content || null),
+      client_name: data.manualFields?.client_name || null,
+      matter_number: data.manualFields?.tender_number || null
+    })
+    return this.getStatementById(id)
+  }
+
+  async updateStatement(id, data) {
+    await capStatementRepository.update(id, data)
+    return this.getStatementById(id)
+  }
+
+  async deleteStatement(id) {
+    await capStatementRepository.deleteVersionsByCapStatementId(id)
+    return capStatementRepository.delete(id)
+  }
+
+  async createVersion(statementId, content, versionName, userId) {
+    const versions = await capStatementRepository.getVersionsByCapStatementId(statementId)
+    const nextNumber = (versions[0]?.version_number || 0) + 1
+    const versionId = await capStatementRepository.createVersion({
+      cap_statement_id: statementId,
+      version_number: nextNumber,
+      version_name: versionName || null,
+      content,
+      settings: {}
+    })
+    return capStatementRepository.getVersionById(versionId)
+  }
+
+  async updateVersion(versionId, content, versionName) {
+    const patch = {}
+    if (content !== undefined) patch.content = content
+    if (versionName !== undefined) patch.version_name = versionName
+    await capStatementRepository.updateVersion(versionId, patch)
+    return capStatementRepository.getVersionById(versionId)
   }
 }
 

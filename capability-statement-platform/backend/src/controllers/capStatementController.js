@@ -1,8 +1,14 @@
+import fs from 'fs'
+import path from 'path'
 import capStatementService from '../services/capStatementService.js'
+import capStatementRepository from '../repositories/capStatementRepository.js'
 import docGenerator from '../services/docGenerator.js'
 import lawyerService from '../services/lawyerService.js'
 import dealService from '../services/dealService.js'
 import awardService from '../services/awardService.js'
+
+const generatedDir = path.join(process.cwd(), 'public', 'generated')
+if (!fs.existsSync(generatedDir)) fs.mkdirSync(generatedDir, { recursive: true })
 
 
 class CapStatementController {
@@ -13,50 +19,64 @@ class CapStatementController {
    */
 async generateStatement(req, res) {
   try {
-         const buffer = await capStatementService.generateFullStatement(req.body || {})
+    const buffer = await capStatementService.generateFullStatement(req.body || {})
 
-      res.setHeader(
-        'Content-Type',
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-      )
+    // --- Persist to disk and DB ---
+    const manualFields = req.body?.manualFields || {}
+    const title = manualFields.title ||
+      (manualFields.client_name ? `${manualFields.client_name} Cap Statement` : null) ||
+      `Capability Statement ${new Date().toISOString().slice(0, 10)}`
 
-      res.setHeader(
-        'Content-Disposition',
-        'attachment; filename="Capability_Statement.docx"'
-      )
+    const filename = `cap-statement-${Date.now()}.docx`
+    const filePath = path.join(generatedDir, filename)
+    fs.writeFileSync(filePath, buffer)
 
-      res.send(buffer)
-    } catch (err) {
-      console.error('❌ Generate error:', err)
-      console.error('Error code:', err.code)
-      console.error('Error message:', err.message)
-      console.error('Error stack:', err.stack)
-      
-      if (err.code === 'TEMPLATE_NOT_FOUND' || err.code === 'ENOENT') {
-        return res.status(503).json({
-          success: false,
-          error: {
-            code: 'TEMPLATE_NOT_FOUND',
-            message: err.code === 'TEMPLATE_NOT_FOUND' ? err.message : 'Word template file not found. Add "Cap Statement Template V1.docx" to backend/src/template/.'
-          }
-        })
-      }
-      
-      // Return detailed error message for debugging
-      const errorMessage = err.message || 'Failed to generate document'
-      const errorCode = err.code || 'UNKNOWN_ERROR'
-      
-      console.error('Returning 500 error:', { code: errorCode, message: errorMessage })
-      
-      res.status(500).json({
+    const userId = req.user ? req.user.id : null
+    const statementId = await capStatementRepository.create({
+      title,
+      status: 'generated',
+      created_by_user_id: userId,
+      file_path: path.join('public', 'generated', filename),
+      client_name: manualFields.client_name || null,
+      matter_number: manualFields.tender_number || null
+    })
+
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    )
+    res.setHeader(
+      'Content-Disposition',
+      'attachment; filename="Capability_Statement.docx"'
+    )
+    res.setHeader('X-Statement-Id', String(statementId))
+
+    res.send(buffer)
+  } catch (err) {
+    console.error('❌ Generate error:', err)
+    console.error('Error code:', err.code)
+    console.error('Error message:', err.message)
+    console.error('Error stack:', err.stack)
+
+    if (err.code === 'TEMPLATE_NOT_FOUND' || err.code === 'ENOENT') {
+      return res.status(503).json({
         success: false,
         error: {
-          code: errorCode,
-          message: errorMessage
+          code: 'TEMPLATE_NOT_FOUND',
+          message: err.code === 'TEMPLATE_NOT_FOUND' ? err.message : 'Word template file not found. Add "Cap Statement Template V1.docx" to backend/src/template/.'
         }
       })
     }
+
+    const errorMessage = err.message || 'Failed to generate document'
+    const errorCode = err.code || 'UNKNOWN_ERROR'
+
+    res.status(500).json({
+      success: false,
+      error: { code: errorCode, message: errorMessage }
+    })
   }
+}
 
 
 
@@ -145,6 +165,39 @@ async generateStatement(req, res) {
   async getStatementById(req, res) {
     const statement = await capStatementService.getStatementById(parseInt(req.params.id, 10))
     res.json({ success: true, data: statement })
+  }
+
+  /**
+   * =========================
+   * DOWNLOAD SAVED STATEMENT
+   * =========================
+   */
+  async downloadStatement(req, res) {
+    const statement = await capStatementRepository.findById(parseInt(req.params.id, 10))
+
+    if (!statement) {
+      return res.status(404).json({ success: false, error: { message: 'Statement not found' } })
+    }
+
+    if (!statement.file_path) {
+      return res.status(404).json({ success: false, error: { message: 'No file stored for this statement' } })
+    }
+
+    const absPath = path.isAbsolute(statement.file_path)
+      ? statement.file_path
+      : path.join(process.cwd(), statement.file_path)
+
+    if (!fs.existsSync(absPath)) {
+      return res.status(404).json({ success: false, error: { message: 'File not found on server' } })
+    }
+
+    const safeName = statement.title
+      ? `${statement.title.replace(/[^a-zA-Z0-9_\- ]/g, '_')}.docx`
+      : 'Capability_Statement.docx'
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+    res.setHeader('Content-Disposition', `attachment; filename="${safeName}"`)
+    fs.createReadStream(absPath).pipe(res)
   }
 
 

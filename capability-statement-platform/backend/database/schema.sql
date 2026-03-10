@@ -59,6 +59,9 @@ CREATE TABLE cap_statements (
   template_id INT,
   generated_content LONGTEXT,
   edited_content LONGTEXT,
+  file_path VARCHAR(500) DEFAULT NULL,
+  client_name VARCHAR(255) DEFAULT NULL,
+  matter_number VARCHAR(100) DEFAULT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 

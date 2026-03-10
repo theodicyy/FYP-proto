@@ -13,6 +13,7 @@ import AdminAwards from '../views/admin/AwardsManagement.vue'
 
 import TemplatePreview from '../views/TemplatePreview.vue'
 import Aggregation from '../views/Aggregation.vue'
+import Library from '../views/Library.vue'
 
 const routes = [
   {
@@ -78,6 +79,13 @@ const routes = [
     path: '/template-preview',
     name: 'TemplatePreview',
     component: TemplatePreview,
+    meta: { requiresAuth: true }
+  },
+
+  {
+    path: '/library',
+    name: 'Library',
+    component: Library,
     meta: { requiresAuth: true }
   }
 ]

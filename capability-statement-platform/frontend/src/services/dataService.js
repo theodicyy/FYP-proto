@@ -263,6 +263,10 @@ async generateStatement(payload) {
     return await api.delete(`/cap-statements/${id}`)
   },
 
+  async downloadDocx(id) {
+    return await api.get(`/cap-statements/${id}/download`, { responseType: 'blob' })
+  },
+
   async getStatements(filters = {}) {
     const params = new URLSearchParams()
     if (filters.status) params.append('status', filters.status)
