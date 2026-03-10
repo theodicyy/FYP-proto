@@ -881,11 +881,22 @@ Object.assign(
       lawyer_profiles,
 
       deal_rows,
+      deal_pg_groups,
+      deal_table_groups,
+      highlights_table_groups,
 
- 
 
 
+      deals_pg1,
+      deals_pg2,
+      deals_pg3,
 
+      highlights_name_pg1,
+      highlights_desc_pg1,
+      highlights_name_pg2,
+      highlights_desc_pg2,
+      highlights_name_pg3,
+      highlights_desc_pg3,
 
       award_groups,
     }
