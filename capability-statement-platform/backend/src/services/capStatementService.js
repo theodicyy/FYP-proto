@@ -2,6 +2,7 @@ import pool from '../config/database.js'
 import docGenerator from './docGenerator.js'
 import capStatementRepository from '../repositories/capStatementRepository.js'
 import { logger } from '../utils/logger.js'
+import llmService from './llmService.js'
 
 class CapStatementService {
 
@@ -102,12 +103,14 @@ const normalizePG = (pg) => {
 
       // Take first 3 only
       const top3GeneralAwards = filteredGeneralAwards.slice(0, 3)
+
+    
     // =====================================================
     // EXISTING CLIENT CHECK
     // =====================================================
 
     let existing_client_bool = false
-    let previous_summary = ''
+    let list_client_deals = ''
 
     if (manualFields.client_name) {
       const [clientDeals] = await pool.query(
@@ -117,7 +120,7 @@ const normalizePG = (pg) => {
 
       if (clientDeals.length) {
         existing_client_bool = true
-        previous_summary = clientDeals
+        list_client_deals = clientDeals
           .map(d => d.deal_summary)
           .filter(Boolean)
           .join('\n')
@@ -354,16 +357,485 @@ const awards_list = [
         page_break: true
       }))
     ]
-  
+  // =====================================================
+    // 🔥 BUILD KNOWLEDGE POOL (FULL CONTEXT TO LLM)
+    // =====================================================
+
+    const knowledgePool = {
+      lawyers,
+      deals,
+      awards,
+      manual_fields: manualFields
+    }
+
+    // =====================================================
+    // 🔥 DEFINE LLM TASKS HERE
+    // =====================================================
+
+    const llmTasks = []
+llmTasks.push({
+  template_variable: "previous_summary",
+
+  prompt: `
+You are a senior legal drafting assistant.
+
+This output will be inserted mid-sentence immediately after:
+"Having previously advised {CLIENT_SHORT_NAME} on "
+
+Task:
+Looking at the previous industry of the client from relevant data json, select the most relevant prior work and transactions from knowledge pool data. Summarise them as a continuation clause.
+
+Rules:
+- Output must be a continuation clause (not a standalone paragraph).
+- Do NOT start a new sentence.
+- Do NOT begin with the client name, "We", or "Our firm".
+- Keep factual; avoid marketing/superlatives.
+- No bullet points, no headings, no quotes, no commentary.
+- Do NOT end with a full stop.
+- Aim for 25–45 words.
+`,
+
+  input_data: {
+    client_short_name: manualFields.client_shortname,
+    client_name: manualFields.client_name,
+    existing_client_bool,
+    previous_deals: deals.filter(
+      d => d.client_name === manualFields.client_name
+    )
+  }
+})
+
+llmTasks.push({
+  template_variable: "previous_transactions",
+
+  prompt: `
+You are a senior legal drafting assistant.
+
+Task:
+Select the scope of services, client industry, and client practice group from the relevant data json. 
+From the knowledge pool, select only the deals from the client industry and client practice group. From this smaller pool, select the most relevant transactions based on the scope of services, and summarise their most important details.
+
+Rules:
+- Output exactly 1–2 sentences.
+- Standalone text (can be pasted as its own paragraph).
+- Factual, measured tone; no superlatives or marketing.
+- Do NOT invent missing details; omit unknowns silently.
+- No bullet points, no headings, no quotes, no commentary.
+- Keep to 45–70 words total.
+`,
+
+  input_data: {
+    scope_of_work: manualFields.scope_of_work,
+    scope_of_work_list: manualFields.scope_of_work_list,
+
+    client_industry: manualFields.deal_industry,
+    client_practice_group: manualFields.main_practice_area,
+
+    relevant_deals: deals.filter(d =>
+      d.deal_industry === manualFields.deal_industry &&
+      normalizePG(d.deal_pg).includes(manualFields.main_practice_area)
+    )
+  }
+})
+
+llmTasks.push({
+  template_variable: "awards_list",
+
+  prompt: `
+You are a senior legal drafting assistant.
+
+Task:
+Select the practice group from the relevant data json. 
+From the knowledge pool, select 7–8 awards most relevant to the practice group provided and present them as bullet points suitable for a client-facing credentials/proposal document.
+
+Rules:
+- Output 7–8 bullet points.
+- Use the bullet symbol "• " at the start of each line.
+- Each bullet should contain: award/ranking + awarding body/publication + (year if available).
+- Keep wording consistent across bullets; avoid hype.
+- Use only the knowledge pool; do not invent facts.
+- No headings, no extra commentary.
+`,
+
+  input_data: {
+    selected_practice_group: manualFields.main_practice_area,
+
+    relevant_awards: awards.filter(a =>
+      normalizePG(a.award_pg).includes(manualFields.main_practice_area)
+    )
+  }
+})
+llmTasks.push({
+  template_variable: "most_rel_award",
+
+  prompt: `
+You are a senior legal drafting assistant.
+
+Task:
+Select the scope of services from the relevant data json. 
+From the knowledge pool, pick the 2 most relevant awards based on the scope of services and write a concise client-facing sentence referencing them.
+
+Rules:
+- Output exactly 1 sentence.
+- Must mention both awards and the awarding bodies/publications.
+- Factual, measured tone; no superlatives or marketing.
+- Use only the knowledge pool; do not invent facts.
+- No bullet points, no quotes, no commentary.
+`,
+
+  input_data: {
+    scope_of_work: manualFields.scope_of_work,
+    matter_description: manualFields.matter_desc,
+    matter_type: manualFields.matter_type,
+    selected_industry: manualFields.deal_industry,
+    selected_practice_group: manualFields.main_practice_area,
+    selected_award_ids: manualFields.most_rel_award,
+    awards
+  }
+})      
+llmTasks.push({
+  template_variable: "track_record_bullet_list",
+
+  prompt: `
+You are a senior legal drafting assistant.
+
+Task:
+Select the scope of services, client industry, and client practice group from the relevant data json. 
+From the knowledge pool, select only the deals from the client industry and client practice group. From this smaller pool, select the most relevant transactions based on the scope of services, and group them by practice group (PG). For each transaction, produce a one-line bullet combining: client name + deal name + short description.
+
+Rules:
+- Output MUST be valid JSON only (no extra text).
+- JSON format:
+  [
+    {
+      ""practice_group"": ""Corporate"",
+      ""items"": [
+        {""line"": ""Client – Deal – short factual description (no hype)""},
+        {""line"": ""...""}
+      ]
+    },
+    ...
+  ]
+- Keep each line <= 22 words.
+- Use only the knowledge pool; do not invent facts.
+`,
+
+  input_data: {
+    scope_of_work: manualFields.scope_of_work,
+    scope_of_work_list: manualFields.scope_of_work_list,
+    client_industry: manualFields.deal_industry,
+    client_practice_group: manualFields.main_practice_area,
+
+    relevant_deals: deals.filter(d =>
+      d.deal_industry === manualFields.deal_industry &&
+      normalizePG(d.deal_pg).includes(manualFields.main_practice_area)
+    )
+  }
+})
+llmTasks.push({
+  template_variable: "track_record_table",
+
+  prompt: `
+You are a senior legal drafting assistant.
+
+Task:
+Select the scope of services, client industry, and client practice group from the relevant data json. 
+From the knowledge pool, select only the deals from the client industry and client practice group. From this smaller pool, select the most relevant transactions based on the scope of services, and group them by client name. For each client, provide a concise one-sentence summary of the relevant work.
+
+Rules:
+- Output MUST be valid JSON only (no extra text).
+- JSON format:
+  [
+    {""client"":""..."", ""summary"":""One factual sentence summarising relevant work (no hype).""},
+    {""client"":""..."", ""summary"":""...""}
+  ]
+- Each summary must be 18–30 words.
+- Use only the knowledge pool; do not invent facts.
+`,
+
+  input_data: {
+    scope_of_work: manualFields.scope_of_work,
+    scope_of_work_list: manualFields.scope_of_work_list,
+    client_industry: manualFields.deal_industry,
+    client_practice_group: manualFields.main_practice_area,
+
+    relevant_deals: deals.filter(d =>
+      d.deal_industry === manualFields.deal_industry &&
+      normalizePG(d.deal_pg).includes(manualFields.main_practice_area)
+    )
+  }
+})
+
+llmTasks.push({
+  template_variable: "highlights_alternative",
+
+  prompt: `
+You are a senior legal drafting assistant.
+
+Task:
+Select the scope of services, client industry, and client practice group from the relevant data json. 
+From the knowledge pool, select only the deals from the client industry and client practice group. From this smaller pool, select the most relevant transactions based on the scope of services, and group them by practice group, with client name and summary of each deal. Include notable points etc and place more important on significant factors as stated in the data. 
+
+Rules:
+- Output MUST be valid JSON only (no extra text).
+- JSON format:
+  [
+    {
+      ""practice_group"":""..."",
+      ""highlights"":[
+        {""client"":""..."", ""summary"":""One factual sentence (no hype).""},
+        {""client"":""..."", ""summary"":""...""}
+      ]
+    }
+  ]
+- Each summary 18–30 words.
+- Use only the knowledge pool; do not invent facts.
+`,
+
+  input_data: {
+    scope_of_work: manualFields.scope_of_work,
+    scope_of_work_list: manualFields.scope_of_work_list,
+    client_industry: manualFields.deal_industry,
+    client_practice_group: manualFields.main_practice_area,
+
+    relevant_deals: deals.filter(d =>
+      d.deal_industry === manualFields.deal_industry &&
+      normalizePG(d.deal_pg).includes(manualFields.main_practice_area)
+    )
+  }
+})
+
+
+
+    // =====================================================
+    // 🔥 CALL LLM ENGINE (PYTHON)
+    // =====================================================
+
+    let llmVariables = {}
+
+    if (llmTasks.length > 0) {
+      llmVariables = await llmService.generateVariables(
+        knowledgePool,
+        llmTasks
+      )
+      console.log("🔥 LLM VARIABLES RETURNED:");
+      console.dir(llmVariables, { depth: null });
+    }
+    // =====================================================
+    // Cleaning
+    // =====================================================
+function extractAndFixJson(raw) {
+  if (!raw) return null;
+
+  let text = raw.trim();
+
+  // Remove "Paragraph:" prefix (can appear multiple times)
+  text = text.replace(/Paragraph:\s*/gi, '');
+
+  // Keep only from first [ or {
+  const firstBracket = text.indexOf('[');
+  const firstBrace = text.indexOf('{');
+
+  let start = -1;
+
+  if (firstBracket !== -1 && firstBrace !== -1) {
+    start = Math.min(firstBracket, firstBrace);
+  } else {
+    start = firstBracket !== -1 ? firstBracket : firstBrace;
+  }
+
+  if (start === -1) return null;
+
+  text = text.slice(start);
+
+  // Fix double-double quotes
+  text = text.replace(/""/g, '"');
+
+  // Remove stray ? inside JSON
+  text = text.replace(/"\?\s*,/g, '",');
+
+  // Remove trailing incomplete fragments
+  const lastBracket = text.lastIndexOf(']');
+  if (lastBracket !== -1) {
+    text = text.slice(0, lastBracket + 1);
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch (err) {
+    console.error("JSON parse failed after cleaning:", err);
+    console.log("Cleaned JSON attempt:\n", text);
+    return null;
+  }
+}
+
+function cleanPreviousSummary(text) {
+  if (!text) return ''
+
+  let cleaned = text.trim()
+
+  // Remove repeated opening phrase if model included it
+  cleaned = cleaned.replace(
+    /^Having previously advised.*? on\s+/i,
+    ''
+  )
+
+  // Remove leading capital letter (force continuation clause)
+  cleaned = cleaned.charAt(0).toLowerCase() + cleaned.slice(1)
+
+  // Remove trailing full stop
+  cleaned = cleaned.replace(/\.\s*$/, '')
+
+  return cleaned
+}
+
+llmVariables.previous_summary = cleanPreviousSummary(
+  llmVariables.previous_summary
+)
+
+function cleanAwardsList(text) {
+  if (!text) return ''
+
+  let cleaned = text.trim()
+
+  // Fix broken bullet encoding
+  cleaned = cleaned.replace(/ï¿½/g, '•')
+
+  // Split by bullet symbol
+  let items = cleaned
+    .split('•')
+    .map(i => i.trim())
+    .filter(Boolean)
+
+  // Limit to 8 maximum
+  items = items.slice(0, 8)
+
+  // Normalize format
+  items = items.map(item => {
+
+    // Extract year
+    const yearMatch = item.match(/\b(20\d{2})\b/)
+    const year = yearMatch ? yearMatch[1] : ''
+
+    // Extract awarding body inside parentheses
+    const pubMatch = item.match(/\(([^)]+)\)/)
+    const publication = pubMatch ? pubMatch[1] : ''
+
+    // Remove all parentheses content from main title
+    let title = item.replace(/\([^)]*\)/g, '').trim()
+
+    // Remove duplicate year words
+    title = title.replace(/\b20\d{2}\b/g, '').trim()
+
+    return `• ${title}${publication ? ' – ' + publication : ''}${year ? ' (' + year + ')' : ''}`
+  })
+
+  return items.join('\n')
+}
+llmVariables.awards_list =
+  cleanAwardsList(llmVariables.awards_list)
+
+  function mapLLMTrackRecordToDealGroups(raw) {
+  const parsed = extractAndFixJson(raw);
+  if (!parsed) return [];
+
+  return parsed.map(group => ({
+    pg: group.practice_group || '',
+    deals: (group.items || []).map(item => ({
+      deal_summary: item.line || ''
+    }))
+  }));
+}
+
+llmVariables.deal_pg_groups =
+  mapLLMTrackRecordToDealGroups(
+    llmVariables.track_record_bullet_list
+  );
+
+
+  function mapTrackRecordTableToFlatFields(raw) {
+  const parsed = extractAndFixJson(raw);
+  if (!parsed) {
+    return {
+      pg_client_name1: '',
+      pg_client_name2: '',
+      pg_client_name3: '',
+      deal_desc_pg1: '',
+      deal_desc_pg2: '',
+      deal_desc_pg3: ''
+    };
+  }
+
+  return {
+    pg_client_name1: parsed[0]?.client || '',
+    pg_client_name2: parsed[1]?.client || '',
+    pg_client_name3: parsed[2]?.client || '',
+
+    deal_desc_pg1: parsed[0]?.summary || '',
+    deal_desc_pg2: parsed[1]?.summary || '',
+    deal_desc_pg3: parsed[2]?.summary || ''
+  };
+}
+
+Object.assign(
+  llmVariables,
+  mapTrackRecordTableToFlatFields(
+    llmVariables.track_record_table
+  )
+);
+
+
+function mapHighlightsToFlatFields(raw) {
+  const parsed = extractAndFixJson(raw);
+  if (!parsed) {
+    return {
+      deals_pg1: '',
+      deals_pg2: '',
+      deals_pg3: '',
+      highlights_name_pg1: '',
+      highlights_desc_pg1: '',
+      highlights_name_pg2: '',
+      highlights_desc_pg2: '',
+      highlights_name_pg3: '',
+      highlights_desc_pg3: ''
+    };
+  }
+
+  const flat = {
+    deals_pg1: parsed[0]?.practice_group || '',
+    deals_pg2: parsed[1]?.practice_group || '',
+    deals_pg3: parsed[2]?.practice_group || ''
+  };
+
+  // Flatten all highlights into single list
+  const allHighlights = parsed.flatMap(g => g.highlights || []);
+
+  flat.highlights_name_pg1 = allHighlights[0]?.client || '';
+  flat.highlights_desc_pg1 = allHighlights[0]?.summary || '';
+
+  flat.highlights_name_pg2 = allHighlights[1]?.client || '';
+  flat.highlights_desc_pg2 = allHighlights[1]?.summary || '';
+
+  flat.highlights_name_pg3 = allHighlights[2]?.client || '';
+  flat.highlights_desc_pg3 = allHighlights[2]?.summary || '';
+
+  return flat;
+}
+
+Object.assign(
+  llmVariables,
+  mapHighlightsToFlatFields(
+    llmVariables.highlights_alternative
+  )
+);
     // =====================================================
     // FINAL PAYLOAD
     // =====================================================
 
     return {
       ...manualFields,
-
+      ...llmVariables,
       existing_client_bool,
-      previous_summary,
       main_practice_area,
 
       previous_client1,
@@ -428,7 +900,6 @@ const awards_list = [
       highlights_desc_pg3,
 
       award_groups,
-      awards_list
     }
   }
 
