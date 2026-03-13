@@ -56,17 +56,8 @@ router.post(
 )
 
 /* =====================================================
-   CRUD (LEGACY / OPTIONAL)
+   CRUD
 ===================================================== */
-
-router.post(
-  '/',
-  authenticate,
-  requireAssociateOrAdmin,
-  asyncHandler(async (req, res) => {
-    await capStatementController.saveStatement(req, res)
-  })
-)
 
 router.get(
   '/',
@@ -95,6 +86,15 @@ router.get(
   })
 )
 
+router.get(
+  '/:id/edit-data',
+  authenticate,
+  requireAssociateOrAdmin,
+  asyncHandler(async (req, res) => {
+    await capStatementController.getEditData(req, res)
+  })
+)
+
 router.put(
   '/:id',
   authenticate,
@@ -112,30 +112,6 @@ router.delete(
   canEditCapStatement,
   asyncHandler(async (req, res) => {
     await capStatementController.deleteStatement(req, res)
-  })
-)
-
-/* =====================================================
-   VERSIONING
-===================================================== */
-
-router.post(
-  '/:id/versions',
-  authenticate,
-  requireAssociateOrAdmin,
-  canEditCapStatement,
-  asyncHandler(async (req, res) => {
-    await capStatementController.createVersion(req, res)
-  })
-)
-
-router.put(
-  '/:id/versions/:versionId',
-  authenticate,
-  requireAssociateOrAdmin,
-  canEditCapStatement,
-  asyncHandler(async (req, res) => {
-    await capStatementController.updateVersion(req, res)
   })
 )
 

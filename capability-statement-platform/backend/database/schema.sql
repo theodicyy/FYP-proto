@@ -208,6 +208,29 @@ CREATE TABLE deal_awards (
 ) ENGINE=InnoDB;
 
 -- ============================================================
+-- CAPABILITY STATEMENT GENERATE (new: stores inputs + DOCX blob)
+-- ============================================================
+
+CREATE TABLE cap_statement_generate (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  group_id VARCHAR(100) NOT NULL,
+  version_number INT NOT NULL DEFAULT 1,
+  title VARCHAR(255),
+  status VARCHAR(50) DEFAULT 'generated',
+  created_by_user_id INT,
+  manual_fields JSON,
+  selected_ids JSON,
+  selected_entities JSON,
+  docx_blob LONGBLOB,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+  FOREIGN KEY (created_by_user_id) REFERENCES users(id),
+  INDEX idx_group_id (group_id),
+  INDEX idx_group_version (group_id, version_number)
+) ENGINE=InnoDB;
+
+-- ============================================================
 -- INDEXES
 -- ============================================================
 

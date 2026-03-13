@@ -2,12 +2,23 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 from pathlib import Path
 import json
+import platform
+import shutil
 
 from summarizer import LocalSummarizer
 
 ROOT = Path(__file__).resolve().parent
 model_path = ROOT / "models" / "model.gguf"
-llama_bin = ROOT / "bin" / "llama-completion.exe"
+
+if platform.system() == "Windows":
+    llama_bin = ROOT / "bin" / "llama-completion.exe"
+else:
+    # On macOS/Linux, use the system-installed llama-completion (e.g. from Homebrew)
+    system_bin = shutil.which("llama-completion")
+    if system_bin:
+        llama_bin = Path(system_bin)
+    else:
+        llama_bin = ROOT / "bin" / "llama-completion"
 
 summarizer = LocalSummarizer(llama_bin=llama_bin, model_path=model_path)
 

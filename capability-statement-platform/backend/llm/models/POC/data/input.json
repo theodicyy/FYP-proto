@@ -1,0 +1,97 @@
+{
+  "document_context": {
+    "document_type": "credentials",
+    "matter_type": "Transaction",
+    "language": "en",
+    "jurisdiction_focus": ["Singapore", "Southeast Asia"]
+  },
+  "resolved_variables": {
+    "client_name": "Acme Pte. Ltd.",
+    "client_short_name": "Acme",
+    "matter_details": "the proposed engagement relating to a cross-border corporate matter in Southeast Asia.",
+    "lead_partners": "Jane Tan and Mark Lim",
+    "partner_name1": "Jane Tan",
+    "designation1": "Partner, Corporate & Finance",
+    "partner_name2": "Mark Lim",
+    "designation2": "Partner, Dispute Resolution",
+    "lawyer_name1": "Alicia Ng",
+    "designation3": "Associate, Corporate",
+    "lawyer_name2": "Daniel Koh",
+    "designation4": "Associate, Regulatory",
+    "team_profiles_reference": "Annex A",
+    "track_record_reference": "Annex B"
+  },
+  "knowledge_pool": {
+    "transactions": [
+      {
+        "id": "txn_001",
+        "title": "Acquisition of regional logistics provider",
+        "client": "Acme Pte. Ltd.",
+        "jurisdictions": ["Singapore", "Vietnam"],
+        "year": 2023,
+        "practice_areas": ["Corporate", "M&A", "Regulatory"],
+        "value": "USD 120 million",
+        "source_text": "Advised Acme on the acquisition of a controlling stake in a regional logistics company. Scope included legal due diligence, transaction structuring, drafting and negotiation of transaction documentation, and coordination of regulatory and completion workstreams across multiple jurisdictions."
+      },
+      {
+        "id": "txn_002",
+        "title": "Cross-border joint venture and governance framework",
+        "client": "Acme Pte. Ltd.",
+        "jurisdictions": ["Singapore", "Indonesia"],
+        "year": 2022,
+        "practice_areas": ["Corporate", "Regulatory"],
+        "value": "Not specified",
+        "source_text": "Acted for Acme in establishing a cross-border joint venture with an Indonesian partner. Work included advising on shareholding and governance arrangements, drafting shareholder documentation, and supporting regulatory compliance considerations relevant to the venture’s operations."
+      },
+      {
+        "id": "txn_003",
+        "title": "Commercial and regulatory advisory support for SEA operations",
+        "client": "Acme Pte. Ltd.",
+        "jurisdictions": ["Singapore", "Thailand", "Malaysia"],
+        "year": 2021,
+        "practice_areas": ["Commercial", "Regulatory"],
+        "value": "Not specified",
+        "source_text": "Provided corporate and commercial advisory support for Acme’s Southeast Asia operations, including review and drafting of commercial agreements and advising on regulatory considerations relevant to cross-border operations."
+      }
+    ],
+    "prior_work": [
+      {
+        "id": "pw_001",
+        "client": "Acme Pte. Ltd.",
+        "year_range": "2021–2024",
+        "practice_areas": ["Corporate", "Commercial", "Regulatory"],
+        "source_text": "Ongoing advisory support to Acme on corporate governance, commercial contracting, and regulatory compliance across its regional operations. Work involved reviewing transaction documentation, advising on risk allocation and practical implementation considerations, and supporting internal stakeholders with time-sensitive drafting and review requests."
+      },
+      {
+        "id": "pw_002",
+        "client": "Acme Pte. Ltd.",
+        "year": 2022,
+        "practice_areas": ["Dispute Resolution", "Commercial"],
+        "source_text": "Supported Acme on dispute-related matters arising from commercial arrangements, including analysis of contractual rights and obligations and drafting and review of correspondence and settlement-related documentation."
+      }
+    ],
+    "notes": [
+      {
+        "id": "note_001",
+        "source": "UI selection / user notes",
+        "source_text": "The user selected the above transactions and prior work as the most relevant items to draw from for this document. The document should be factual, measured, and client-facing, and should not include exaggerated marketing language."
+      }
+    ]
+  },
+  "generation_tasks": [
+    {
+      "template_variable": "prior_work_summary",
+      "source_collections": ["prior_work", "transactions", "notes"],
+      "instructions": "Summarise the firm’s prior work with the client into 1–2 factual sentences suitable for insertion into a client-facing credentials/proposal document. Focus on scope of work and relevance. Avoid hype or superlatives. Do not invent facts or add details not present in the source.",
+      "max_sentences": 2,
+      "tone": "formal, professional, client-facing, measured (avoid superlatives)"
+    },
+    {
+      "template_variable": "relevant_transactions_summary",
+      "source_collections": ["transactions", "notes"],
+      "instructions": "Summarise the most relevant selected transactions into 1–2 factual sentences aligned to the matter scope. Prefer cross-border and Southeast Asia elements if available. Avoid hype. Do not invent facts or add details not present in the source.",
+      "max_sentences": 2,
+      "tone": "formal, professional, client-facing, measured (avoid superlatives)"
+    }
+  ]
+}

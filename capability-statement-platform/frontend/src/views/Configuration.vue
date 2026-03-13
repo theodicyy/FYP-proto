@@ -24,6 +24,16 @@
       </div>
     </section>
 
+    <!-- Edit mode banner -->
+    <Transition name="fade">
+      <div v-if="capStore.editGroupId" class="alert mb-6 flex items-start gap-3" style="background-color: #eff6ff; border-color: #93c5fd; color: #1e40af;">
+        <svg class="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <span>You are editing an existing statement. Generating will save as a <strong>new version</strong> of the same document.</span>
+      </div>
+    </Transition>
+
     <!-- Error alert -->
     <Transition name="fade">
       <div
@@ -447,14 +457,26 @@ function isLeadCheckboxDisabled(lawyerId) {
 async function generate() {
   capStore.error = null
   try {
-    await capStore.generateStatement({
+    const payload = {
       selectedIds: {
         lawyerIds: lawyers.value.map((x) => x.id),
         dealIds: dataStore.selectedDeals.map((x) => x.id),
         awardIds: awards.value.map((x) => x.id),
       },
+      selectedEntities: {
+        lawyers: JSON.parse(JSON.stringify(lawyers.value)),
+        deals: JSON.parse(JSON.stringify(dataStore.selectedDeals)),
+        awards: JSON.parse(JSON.stringify(awards.value)),
+      },
       manualFields: capStore.manualFields,
-    })
+    }
+
+    // If editing an existing statement, pass the group_id so generate creates a new version
+    if (capStore.editGroupId) {
+      payload.group_id = capStore.editGroupId
+    }
+
+    await capStore.generateStatement(payload)
     router.push('/preview')
   } catch (_) {
     // Error shown via capStore.error in template

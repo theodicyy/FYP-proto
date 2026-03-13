@@ -909,10 +909,18 @@ Object.assign(
 
   async getStatements(filters = {}) {
     const rows = await capStatementRepository.findAll(filters)
-    // Attach latest_version to each statement
+    // Attach version count and latest version_number
     const withVersions = await Promise.all(rows.map(async (s) => {
-      const latest = await capStatementRepository.getLatestVersion(s.id)
-      return { ...s, latest_version: latest || null }
+      const versions = await capStatementRepository.findVersionsByGroupId(s.group_id)
+      return {
+        ...s,
+        version_count: versions.length,
+        versions,
+        latest_version: versions[0] || null,
+        // Compat fields for Library.vue
+        client_name: s.manual_fields?.client_name || (typeof s.manual_fields === 'string' ? JSON.parse(s.manual_fields)?.client_name : null),
+        matter_number: s.manual_fields?.tender_number || (typeof s.manual_fields === 'string' ? JSON.parse(s.manual_fields)?.tender_number : null)
+      }
     }))
     return withVersions
   }
@@ -920,22 +928,22 @@ Object.assign(
   async getStatementById(id) {
     const statement = await capStatementRepository.findById(id)
     if (!statement) return null
-    const versions = await capStatementRepository.getVersionsByCapStatementId(id)
+    const versions = await capStatementRepository.findVersionsByGroupId(statement.group_id)
     const latest = versions[0] || null
-    return { ...statement, versions, latest_version: latest }
-  }
-
-  async saveStatement(data, userId) {
-    const id = await capStatementRepository.create({
-      title: data.title,
-      description: data.description || null,
-      status: data.status || 'draft',
-      created_by_user_id: userId || null,
-      generated_content: typeof data.content === 'object' ? JSON.stringify(data.content) : (data.content || null),
-      client_name: data.manualFields?.client_name || null,
-      matter_number: data.manualFields?.tender_number || null
-    })
-    return this.getStatementById(id)
+    // Parse JSON fields
+    const mf = typeof statement.manual_fields === 'string' ? JSON.parse(statement.manual_fields) : (statement.manual_fields || {})
+    const si = typeof statement.selected_ids === 'string' ? JSON.parse(statement.selected_ids) : (statement.selected_ids || {})
+    const se = typeof statement.selected_entities === 'string' ? JSON.parse(statement.selected_entities) : (statement.selected_entities || {})
+    return {
+      ...statement,
+      manual_fields: mf,
+      selected_ids: si,
+      selected_entities: se,
+      versions,
+      latest_version: latest,
+      client_name: mf.client_name || null,
+      matter_number: mf.tender_number || null
+    }
   }
 
   async updateStatement(id, data) {
@@ -944,29 +952,9 @@ Object.assign(
   }
 
   async deleteStatement(id) {
-    await capStatementRepository.deleteVersionsByCapStatementId(id)
-    return capStatementRepository.delete(id)
-  }
-
-  async createVersion(statementId, content, versionName, userId) {
-    const versions = await capStatementRepository.getVersionsByCapStatementId(statementId)
-    const nextNumber = (versions[0]?.version_number || 0) + 1
-    const versionId = await capStatementRepository.createVersion({
-      cap_statement_id: statementId,
-      version_number: nextNumber,
-      version_name: versionName || null,
-      content,
-      settings: {}
-    })
-    return capStatementRepository.getVersionById(versionId)
-  }
-
-  async updateVersion(versionId, content, versionName) {
-    const patch = {}
-    if (content !== undefined) patch.content = content
-    if (versionName !== undefined) patch.version_name = versionName
-    await capStatementRepository.updateVersion(versionId, patch)
-    return capStatementRepository.getVersionById(versionId)
+    const statement = await capStatementRepository.findById(id)
+    if (!statement) return false
+    return capStatementRepository.deleteByGroupId(statement.group_id)
   }
 }
 

@@ -2,36 +2,51 @@ import pool from '../config/database.js';
 import { logger } from '../utils/logger.js';
 
 class CapStatementRepository {
+
+  // =====================================================
+  // LIST all statements (latest version per group)
+  // =====================================================
   async findAll(filters = {}) {
     try {
-      let query = 'SELECT * FROM cap_statements WHERE 1=1';
+      let query = `
+        SELECT g.*
+        FROM cap_statement_generate g
+        INNER JOIN (
+          SELECT group_id, MAX(version_number) AS max_ver
+          FROM cap_statement_generate
+          GROUP BY group_id
+        ) latest ON g.group_id = latest.group_id AND g.version_number = latest.max_ver
+        WHERE 1=1
+      `;
       const params = [];
 
       if (filters.status) {
-        query += ' AND status = ?';
+        query += ' AND g.status = ?';
         params.push(filters.status);
       }
-
-      // Filter by user ownership (for Associates)
       if (filters.created_by_user_id) {
-        query += ' AND created_by_user_id = ?';
+        query += ' AND g.created_by_user_id = ?';
         params.push(filters.created_by_user_id);
       }
 
-      query += ' ORDER BY created_at DESC';
+      query += ' ORDER BY g.created_at DESC';
 
       const [rows] = await pool.execute(query, params);
-      return rows;
+      // Don't return the BLOB in list queries
+      return rows.map(r => ({ ...r, docx_blob: undefined }));
     } catch (error) {
       logger.error('Error fetching capability statements', { error: error.message });
       throw error;
     }
   }
 
+  // =====================================================
+  // GET single row by id (without BLOB)
+  // =====================================================
   async findById(id) {
     try {
       const [rows] = await pool.execute(
-        'SELECT * FROM cap_statements WHERE id = ?',
+        'SELECT id, group_id, version_number, title, status, created_by_user_id, manual_fields, selected_ids, selected_entities, created_at, updated_at FROM cap_statement_generate WHERE id = ?',
         [id]
       );
       return rows[0] || null;
@@ -41,22 +56,41 @@ class CapStatementRepository {
     }
   }
 
-  async create(capStatement) {
+  // =====================================================
+  // GET all versions for a group
+  // =====================================================
+  async findVersionsByGroupId(groupId) {
+    try {
+      const [rows] = await pool.execute(
+        'SELECT id, group_id, version_number, title, status, created_by_user_id, manual_fields, selected_ids, selected_entities, created_at, updated_at FROM cap_statement_generate WHERE group_id = ? ORDER BY version_number DESC',
+        [groupId]
+      );
+      return rows;
+    } catch (error) {
+      logger.error('Error fetching versions by group_id', { error: error.message, groupId });
+      throw error;
+    }
+  }
+
+  // =====================================================
+  // CREATE (insert a new generation row)
+  // =====================================================
+  async create(data) {
     try {
       const [result] = await pool.execute(
-        `INSERT INTO cap_statements (title, description, status, created_by_user_id, template_id, generated_content, edited_content, file_path, client_name, matter_number)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO cap_statement_generate
+         (group_id, version_number, title, status, created_by_user_id, manual_fields, selected_ids, selected_entities, docx_blob)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
-          capStatement.title,
-          capStatement.description || null,
-          capStatement.status || 'draft',
-          capStatement.created_by_user_id || null,
-          capStatement.template_id || null,
-          capStatement.generated_content || null,
-          capStatement.edited_content || null,
-          capStatement.file_path || null,
-          capStatement.client_name || null,
-          capStatement.matter_number || null
+          data.group_id,
+          data.version_number || 1,
+          data.title || null,
+          data.status || 'generated',
+          data.created_by_user_id || null,
+          JSON.stringify(data.manual_fields || {}),
+          JSON.stringify(data.selected_ids || {}),
+          JSON.stringify(data.selected_entities || {}),
+          data.docx_blob || null
         ]
       );
       return result.insertId;
@@ -66,35 +100,28 @@ class CapStatementRepository {
     }
   }
 
-  async update(id, capStatement) {
+  // =====================================================
+  // UPDATE status
+  // =====================================================
+  async update(id, data) {
     try {
       const updates = [];
       const params = [];
 
-      if (capStatement.title !== undefined) {
+      if (data.title !== undefined) {
         updates.push('title = ?');
-        params.push(capStatement.title);
+        params.push(data.title);
       }
-      if (capStatement.description !== undefined) {
-        updates.push('description = ?');
-        params.push(capStatement.description);
-      }
-      if (capStatement.status !== undefined) {
+      if (data.status !== undefined) {
         updates.push('status = ?');
-        params.push(capStatement.status);
-      }
-      if (capStatement.edited_content !== undefined) {
-        updates.push('edited_content = ?');
-        params.push(capStatement.edited_content);
+        params.push(data.status);
       }
 
-      if (updates.length === 0) {
-        return false;
-      }
+      if (updates.length === 0) return false;
 
       params.push(id);
       const [result] = await pool.execute(
-        `UPDATE cap_statements SET ${updates.join(', ')} WHERE id = ?`,
+        `UPDATE cap_statement_generate SET ${updates.join(', ')} WHERE id = ?`,
         params
       );
       return result.affectedRows > 0;
@@ -104,135 +131,50 @@ class CapStatementRepository {
     }
   }
 
-  async delete(id) {
+  // =====================================================
+  // DELETE all versions for a group
+  // =====================================================
+  async deleteByGroupId(groupId) {
     try {
       const [result] = await pool.execute(
-        'DELETE FROM cap_statements WHERE id = ?',
+        'DELETE FROM cap_statement_generate WHERE group_id = ?',
+        [groupId]
+      );
+      return result.affectedRows > 0;
+    } catch (error) {
+      logger.error('Error deleting cap statement group', { error: error.message, groupId });
+      throw error;
+    }
+  }
+
+  // =====================================================
+  // GET DOCX BLOB by id
+  // =====================================================
+  async getDocxBlob(id) {
+    try {
+      const [rows] = await pool.execute(
+        'SELECT docx_blob FROM cap_statement_generate WHERE id = ?',
         [id]
       );
-      return result.affectedRows > 0;
+      return rows[0]?.docx_blob || null;
     } catch (error) {
-      logger.error('Error deleting cap statement', { error: error.message, id });
+      logger.error('Error fetching docx blob', { error: error.message, id });
       throw error;
     }
   }
 
-  async deleteVersionsByCapStatementId(capStatementId) {
-    try {
-      const [result] = await pool.execute(
-        'DELETE FROM cap_statement_versions WHERE cap_statement_id = ?',
-        [capStatementId]
-      );
-      logger.info('Deleted versions for cap statement', { capStatementId, count: result.affectedRows });
-      return result.affectedRows;
-    } catch (error) {
-      logger.error('Error deleting versions for cap statement', { error: error.message, capStatementId });
-      throw error;
-    }
-  }
-
-  async createVersion(version) {
-    try {
-      const [result] = await pool.execute(
-        `INSERT INTO cap_statement_versions 
-         (cap_statement_id, version_number, version_name, content, settings)
-         VALUES (?, ?, ?, ?, ?)`,
-        [
-          version.cap_statement_id,
-          version.version_number,
-          version.version_name || null,
-          version.content,
-          JSON.stringify(version.settings || {})
-        ]
-      );
-      return result.insertId;
-    } catch (error) {
-      logger.error('Error creating cap statement version', { error: error.message });
-      throw error;
-    }
-  }
-
-  async getVersionsByCapStatementId(capStatementId) {
+  // =====================================================
+  // GET latest version number for a group
+  // =====================================================
+  async getLatestVersionNumber(groupId) {
     try {
       const [rows] = await pool.execute(
-        'SELECT * FROM cap_statement_versions WHERE cap_statement_id = ? ORDER BY version_number DESC',
-        [capStatementId]
+        'SELECT MAX(version_number) as max_ver FROM cap_statement_generate WHERE group_id = ?',
+        [groupId]
       );
-      return rows;
+      return rows[0]?.max_ver || 0;
     } catch (error) {
-      logger.error('Error fetching versions', { error: error.message, capStatementId });
-      throw error;
-    }
-  }
-
-  async getLatestVersion(capStatementId) {
-    try {
-      const [rows] = await pool.execute(
-        'SELECT * FROM cap_statement_versions WHERE cap_statement_id = ? ORDER BY version_number DESC LIMIT 1',
-        [capStatementId]
-      );
-      return rows[0] || null;
-    } catch (error) {
-      logger.error('Error fetching latest version', { error: error.message, capStatementId });
-      throw error;
-    }
-  }
-
-  async getVersionById(versionId) {
-    try {
-      const [rows] = await pool.execute(
-        'SELECT * FROM cap_statement_versions WHERE id = ?',
-        [versionId]
-      );
-      return rows[0] || null;
-    } catch (error) {
-      logger.error('Error fetching version by ID', { error: error.message, versionId });
-      throw error;
-    }
-  }
-
-  async updateVersion(versionId, version) {
-    try {
-      const updates = [];
-      const params = [];
-
-      if (version.content !== undefined) {
-        updates.push('content = ?');
-        params.push(version.content);
-      }
-      if (version.version_name !== undefined) {
-        updates.push('version_name = ?');
-        params.push(version.version_name || null);
-      }
-      if (version.settings !== undefined) {
-        updates.push('settings = ?');
-        params.push(JSON.stringify(version.settings || {}));
-      }
-      if (version.selected_deal_ids !== undefined) {
-        updates.push('selected_deal_ids = ?');
-        params.push(JSON.stringify(version.selected_deal_ids || []));
-      }
-      if (version.selected_award_ids !== undefined) {
-        updates.push('selected_award_ids = ?');
-        params.push(JSON.stringify(version.selected_award_ids || []));
-      }
-      if (version.selected_lawyer_ids !== undefined) {
-        updates.push('selected_lawyer_ids = ?');
-        params.push(JSON.stringify(version.selected_lawyer_ids || []));
-      }
-
-      if (updates.length === 0) {
-        return false;
-      }
-
-      params.push(versionId);
-      const [result] = await pool.execute(
-        `UPDATE cap_statement_versions SET ${updates.join(', ')} WHERE id = ?`,
-        params
-      );
-      return result.affectedRows > 0;
-    } catch (error) {
-      logger.error('Error updating cap statement version', { error: error.message, versionId });
+      logger.error('Error fetching latest version number', { error: error.message, groupId });
       throw error;
     }
   }

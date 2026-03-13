@@ -1,133 +1,95 @@
-import fs from 'fs'
-import path from 'path'
+import crypto from 'crypto'
 import capStatementService from '../services/capStatementService.js'
 import capStatementRepository from '../repositories/capStatementRepository.js'
-import docGenerator from '../services/docGenerator.js'
-import lawyerService from '../services/lawyerService.js'
-import dealService from '../services/dealService.js'
-import awardService from '../services/awardService.js'
-
-const generatedDir = path.join(process.cwd(), 'public', 'generated')
-if (!fs.existsSync(generatedDir)) fs.mkdirSync(generatedDir, { recursive: true })
-
 
 class CapStatementController {
   /**
    * =========================
    * GENERATE (DOCX FLOW)
+   * Saves DOCX as BLOB in DB + all form inputs
    * =========================
    */
-async generateStatement(req, res) {
-  try {
-    const buffer = await capStatementService.generateFullStatement(req.body || {})
+  async generateStatement(req, res) {
+    try {
+      const buffer = await capStatementService.generateFullStatement(req.body || {})
 
-    // --- Persist to disk and DB ---
-    const manualFields = req.body?.manualFields || {}
-    const title = manualFields.title ||
-      (manualFields.client_name ? `${manualFields.client_name} Cap Statement` : null) ||
-      `Capability Statement ${new Date().toISOString().slice(0, 10)}`
+      const manualFields = req.body?.manualFields || {}
+      const selectedIds = req.body?.selectedIds || {}
+      const selectedEntities = req.body?.selectedEntities || {}
+      const title = manualFields.title ||
+        (manualFields.client_name ? `${manualFields.client_name} Cap Statement` : null) ||
+        `Capability Statement ${new Date().toISOString().slice(0, 10)}`
 
-    const filename = `cap-statement-${Date.now()}.docx`
-    const filePath = path.join(generatedDir, filename)
-    fs.writeFileSync(filePath, buffer)
+      const userId = req.user ? req.user.id : null
 
-    const userId = req.user ? req.user.id : null
-    const statementId = await capStatementRepository.create({
-      title,
-      status: 'generated',
-      created_by_user_id: userId,
-      file_path: path.join('public', 'generated', filename),
-      client_name: manualFields.client_name || null,
-      matter_number: manualFields.tender_number || null
-    })
+      // Determine group_id and version_number
+      // If editing a previous statement, group_id comes from the request
+      const groupId = req.body?.group_id || crypto.randomUUID()
+      let versionNumber = 1
 
-    res.setHeader(
-      'Content-Type',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-    )
-    res.setHeader(
-      'Content-Disposition',
-      'attachment; filename="Capability_Statement.docx"'
-    )
-    res.setHeader('X-Statement-Id', String(statementId))
+      if (req.body?.group_id) {
+        const latestVer = await capStatementRepository.getLatestVersionNumber(groupId)
+        versionNumber = latestVer + 1
+      }
 
-    res.send(buffer)
-  } catch (err) {
-    console.error('❌ Generate error:', err)
-    console.error('Error code:', err.code)
-    console.error('Error message:', err.message)
-    console.error('Error stack:', err.stack)
-
-    if (err.code === 'TEMPLATE_NOT_FOUND' || err.code === 'ENOENT') {
-      return res.status(503).json({
-        success: false,
-        error: {
-          code: 'TEMPLATE_NOT_FOUND',
-          message: err.code === 'TEMPLATE_NOT_FOUND' ? err.message : 'Word template file not found. Add "Cap Statement Template V1.docx" to backend/src/template/.'
-        }
-      })
-    }
-
-    const errorMessage = err.message || 'Failed to generate document'
-    const errorCode = err.code || 'UNKNOWN_ERROR'
-
-    res.status(500).json({
-      success: false,
-      error: { code: errorCode, message: errorMessage }
-    })
-  }
-}
-
-
-
-
-
-  /**
-   * =========================
-   * SAVE STATEMENT (LEGACY)
-   * =========================
-   */
-  async saveStatement(req, res) {
-    const { title, description, content, manualFields } = req.body
-
-    if (!title) {
-      return res.status(400).json({
-        success: false,
-        error: { message: 'Title is required' }
-      })
-    }
-
-    const userId = req.user ? req.user.id : null
-
-    const result = await capStatementService.saveStatement(
-      {
+      const statementId = await capStatementRepository.create({
+        group_id: groupId,
+        version_number: versionNumber,
         title,
-        description,
-        content,
-        manualFields
-      },
-      userId
-    )
+        status: 'generated',
+        created_by_user_id: userId,
+        manual_fields: manualFields,
+        selected_ids: selectedIds,
+        selected_entities: selectedEntities,
+        docx_blob: buffer
+      })
 
-    res.status(201).json({
-      success: true,
-      data: result
-    })
+      res.setHeader(
+        'Content-Type',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+      )
+      res.setHeader(
+        'Content-Disposition',
+        'attachment; filename="Capability_Statement.docx"'
+      )
+      res.setHeader('X-Statement-Id', String(statementId))
+      res.setHeader('X-Group-Id', groupId)
+
+      res.send(buffer)
+    } catch (err) {
+      console.error('Generate error:', err)
+
+      if (err.code === 'TEMPLATE_NOT_FOUND' || err.code === 'ENOENT') {
+        return res.status(503).json({
+          success: false,
+          error: {
+            code: 'TEMPLATE_NOT_FOUND',
+            message: err.code === 'TEMPLATE_NOT_FOUND' ? err.message : 'Word template file not found. Add "Cap Statement Template V1.docx" to backend/src/template/.'
+          }
+        })
+      }
+
+      const errorMessage = err.message || 'Failed to generate document'
+      const errorCode = err.code || 'UNKNOWN_ERROR'
+
+      res.status(500).json({
+        success: false,
+        error: { code: errorCode, message: errorMessage }
+      })
+    }
   }
 
   /**
    * =========================
-   * UPDATE STATEMENT
+   * UPDATE STATEMENT (status only)
    * =========================
    */
   async updateStatement(req, res) {
     const { id } = req.params
-    const { title, description, edited_content, status } = req.body
+    const { title, status } = req.body
 
     const result = await capStatementService.updateStatement(parseInt(id, 10), {
       title,
-      description,
-      edited_content,
       status
     })
 
@@ -139,7 +101,7 @@ async generateStatement(req, res) {
 
   /**
    * =========================
-   * DELETE STATEMENT
+   * DELETE STATEMENT (all versions)
    * =========================
    */
   async deleteStatement(req, res) {
@@ -164,31 +126,29 @@ async generateStatement(req, res) {
 
   async getStatementById(req, res) {
     const statement = await capStatementService.getStatementById(parseInt(req.params.id, 10))
+    if (!statement) {
+      return res.status(404).json({ success: false, error: { message: 'Statement not found' } })
+    }
     res.json({ success: true, data: statement })
   }
 
   /**
    * =========================
-   * DOWNLOAD SAVED STATEMENT
+   * DOWNLOAD DOCX FROM DB (BLOB)
    * =========================
    */
   async downloadStatement(req, res) {
-    const statement = await capStatementRepository.findById(parseInt(req.params.id, 10))
+    const id = parseInt(req.params.id, 10)
+    const statement = await capStatementRepository.findById(id)
 
     if (!statement) {
       return res.status(404).json({ success: false, error: { message: 'Statement not found' } })
     }
 
-    if (!statement.file_path) {
-      return res.status(404).json({ success: false, error: { message: 'No file stored for this statement' } })
-    }
+    const blob = await capStatementRepository.getDocxBlob(id)
 
-    const absPath = path.isAbsolute(statement.file_path)
-      ? statement.file_path
-      : path.join(process.cwd(), statement.file_path)
-
-    if (!fs.existsSync(absPath)) {
-      return res.status(404).json({ success: false, error: { message: 'File not found on server' } })
+    if (!blob) {
+      return res.status(404).json({ success: false, error: { message: 'No DOCX file stored for this statement' } })
     }
 
     const safeName = statement.title
@@ -197,61 +157,32 @@ async generateStatement(req, res) {
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
     res.setHeader('Content-Disposition', `attachment; filename="${safeName}"`)
-    fs.createReadStream(absPath).pipe(res)
+    res.send(Buffer.from(blob))
   }
-
 
   /**
    * =========================
-   * VERSIONING
+   * GET FORM DATA FOR EDIT
+   * Returns manual_fields + selected_ids so frontend
+   * can pre-fill /configuration for a new version
    * =========================
    */
-  async createVersion(req, res) {
-    const { id } = req.params
-    const { content, versionName } = req.body
+  async getEditData(req, res) {
+    const id = parseInt(req.params.id, 10)
+    const statement = await capStatementService.getStatementById(id)
 
-    if (content === undefined) {
-      return res.status(400).json({
-        success: false,
-        error: { message: 'Content is required' }
-      })
+    if (!statement) {
+      return res.status(404).json({ success: false, error: { message: 'Statement not found' } })
     }
-
-    const userId = req.user ? req.user.id : null
-
-    const version = await capStatementService.createVersion(
-      parseInt(id, 10),
-      content,
-      versionName || null,
-      userId
-    )
-
-    res.status(201).json({
-      success: true,
-      data: version
-    })
-  }
-
-  async updateVersion(req, res) {
-    const { versionId } = req.params
-    const { content, versionName } = req.body
-
-    if (content === undefined && versionName === undefined) {
-      return res.status(400).json({
-        success: false,
-        error: { message: 'Either content or versionName must be provided' }
-      })
-    }
-
-    const version = await capStatementService.updateVersion(
-      parseInt(versionId, 10),
-      content,
-      versionName
-    )
 
     res.json({
       success: true,
-      data: version
+      data: {
+        group_id: statement.group_id,
+        manual_fields: statement.manual_fields,
+        selected_ids: statement.selected_ids,
+        selected_entities: statement.selected_entities
+      }
     })
   }
 
