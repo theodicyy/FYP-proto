@@ -169,7 +169,7 @@
               <th>Name</th>
               <th>Practice Group</th>
               <th>Title</th>
-              <th>Experience</th>
+              <th>Awards</th>
             </tr>
           </thead>
           <tbody>
@@ -209,7 +209,7 @@
                 </div>
               </td>
               <td>{{ lawyer.title }}</td>
-              <td>{{ lawyer.years_experience }} years</td>
+<td>{{ lawyer.lawyer_awards || '—' }}</td>
             </tr>
           </tbody>
         </table>
@@ -270,8 +270,7 @@
               <td>
                 <span class="font-medium text-emerald-600">{{ formatCurrency(deal.deal_value, deal.deal_currency) }}</span>
               </td>
-              <td>{{ deal.deal_year }}</td>
-              <td>
+<td>{{ getDealYearFromDate(deal.deal_date) }}</td>              <td>
                 <span class="badge badge-info">{{ String(deal.deal_industry ?? deal.industry ?? '').trim() || '—' }}</span>
               </td>
             </tr>
@@ -307,9 +306,9 @@
                 />
               </th>
               <th>Award Name</th>
-              <th>Organization</th>
+              <th>Publication</th>
               <th>Year</th>
-              <th>Category</th>
+              <th>Practice Group</th>
             </tr>
           </thead>
           <tbody>
@@ -336,11 +335,22 @@
                   <span class="font-medium text-secondary-900">{{ award.award_name }}</span>
                 </div>
               </td>
-              <td>{{ award.awarding_organization }}</td>
+              <td>{{ award.publications }}</td>
               <td>{{ award.award_year }}</td>
-              <td>
-                <span class="badge badge-warning">{{ award.category }}</span>
-              </td>
+<td>
+  <div class="practice-group-pills">
+    <template v-if="parseAwardPracticeGroups(award).length">
+      <span
+        v-for="(pg, idx) in parseAwardPracticeGroups(award)"
+        :key="idx"
+        class="practice-group-pill"
+      >
+        {{ pg }}
+      </span>
+    </template>
+    <span v-else class="practice-group-empty">—</span>
+  </div>
+</td>
             </tr>
           </tbody>
         </table>
@@ -395,6 +405,25 @@ function parsePracticeGroups(lawyer) {
   if (!raw || typeof raw !== 'string') return []
   return raw.split(',').map(s => s.trim()).filter(Boolean)
 }
+function parseAwardPracticeGroups(award) {
+  const raw = award.award_pg ?? ''
+  if (!raw) return []
+
+  try {
+    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw
+    return parsed
+      .flatMap(v => String(v).split(','))
+      .map(s => s.trim())
+      .filter(Boolean)
+  } catch {
+    return String(raw)
+      .replace(/[\[\]"]/g, '')
+      .split(',')
+      .map(s => s.trim())
+      .filter(Boolean)
+  }
+}
+
 
 /** Lawyer matches search if text fields match OR any practice group (after split/trim) contains the query (case-insensitive). */
 function lawyerMatchesSearch(lawyer, term) {
@@ -458,11 +487,26 @@ const filteredLawyers = computed(() => {
   }
   return list
 })
+function getDealYearFromDate(date) {
+  if (!date) return ''
+  const d = new Date(date)
+  if (isNaN(d)) return ''
+  return d.getFullYear()
+}
 const filteredDeals = computed(() => {
   let list = dataStore.deals
+
   if (industryFilter.value) {
     list = list.filter(d => dealInIndustry(d, industryFilter.value))
   }
+
+  // FIX: filter using year extracted from deal_date
+  if (localFilters.value.year) {
+    list = list.filter(
+      d => String(getDealYearFromDate(d.deal_date)) === String(localFilters.value.year)
+    )
+  }
+
   if (searchTerm.value) {
     list = list.filter(d =>
       matchText(
@@ -471,24 +515,38 @@ const filteredDeals = computed(() => {
         d.client_name,
         d.industry,
         d.deal_industry,
-        d.deal_year,
+        getDealYearFromDate(d.deal_date),
         d.deal_value
       )
     )
   }
+
   return list
 })
 const filteredAwards = computed(() => {
-  if (!searchTerm.value) return dataStore.awards
-  return dataStore.awards.filter(a =>
-    matchText(
-      searchTerm.value,
-      a.award_name,
-      a.awarding_organization,
-      a.category,
-      a.award_year
+  let list = dataStore.awards
+
+  if (practiceGroupFilter.value) {
+    list = list.filter(a =>
+      parseAwardPracticeGroups(a).some(
+        pg => pg.toLowerCase() === practiceGroupFilter.value.toLowerCase()
+      )
     )
-  )
+  }
+
+  if (searchTerm.value) {
+    list = list.filter(a =>
+      matchText(
+        searchTerm.value,
+        a.award_name,
+        a.awarding_organization,
+        a.award_year,
+        ...parseAwardPracticeGroups(a)
+      )
+    )
+  }
+
+  return list
 })
 
 // Tab icons as render functions
