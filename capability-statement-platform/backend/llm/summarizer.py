@@ -1,22 +1,37 @@
 import re
 import subprocess
 import json
+import time
 from pathlib import Path
 
 
 class LocalSummarizer:
-    """
-    Uses a bundled llama.cpp binary (e.g., bin/llama-completion.exe)
-    + local GGUF model (models/model.gguf).
-    Runs fully offline.
-    """
 
     def __init__(self, llama_bin: Path, model_path: Path):
         self.llama_bin = str(llama_bin)
         self.model_path = str(model_path)
 
     # =====================================================
-    # CLEAN PARAGRAPH OUTPUT
+    # DEBUG LOGGER (SAFE)
+    # =====================================================
+
+    def _log(self, title, content, max_len=1500):
+        print(f"\n[LLM DEBUG] ===== {title} =====", flush=True)
+
+        try:
+            if isinstance(content, (dict, list)):
+                print(json.dumps(content, indent=2, ensure_ascii=False), flush=True)
+            else:
+                text = str(content)
+                if len(text) > max_len:
+                    print(text[:max_len] + "\n...[TRUNCATED]", flush=True)
+                else:
+                    print(text, flush=True)
+        except Exception:
+            print(content, flush=True)
+
+    # =====================================================
+    # CLEAN OUTPUT
     # =====================================================
 
     @staticmethod
@@ -54,17 +69,12 @@ class LocalSummarizer:
         return t.strip()
 
     # =====================================================
-    # EXTRACT ONLY REAL MODEL OUTPUT
+    # EXTRACT OUTPUT
     # =====================================================
 
     @staticmethod
     def _extract_real_output(raw: str) -> str:
-        """
-        Extract ONLY the actual model output.
-        Everything before 'Output:' or 'Paragraph:' is discarded.
-        """
 
-        # Remove obvious perf/memory logs first
         filtered_lines = []
         for line in raw.splitlines():
             if "common_perf_print:" in line:
@@ -75,7 +85,6 @@ class LocalSummarizer:
 
         cleaned = "\n".join(filtered_lines)
 
-        # 🔥 Extract from LAST occurrence of Output/Paragraph
         markers = ["Output:", "Paragraph:"]
 
         for marker in markers:
@@ -83,11 +92,10 @@ class LocalSummarizer:
             if idx != -1:
                 return cleaned[idx + len(marker):].strip()
 
-        # Fallback if markers not found
         return cleaned.strip()
 
     # =====================================================
-    # MAIN GENERATION FUNCTION
+    # MAIN FUNCTION
     # =====================================================
 
     def summarize_one_paragraph(
@@ -98,15 +106,16 @@ class LocalSummarizer:
         max_words: int = 140,
     ) -> str:
 
+        start_time = time.time()
+
         prompt = f"""
 Write ONE polished paragraph for a client-facing document.
 
 Constraints:
-- Output ONLY the paragraph. No preface, no notes, no disclaimers, no meta-commentary, no quotes.
+- Output ONLY the paragraph.
+- No preface, no notes, no disclaimers.
 - Do NOT mention these instructions.
-- Do NOT include concluding or summary phrases.
-- If information is missing, omit it silently.
-- Keep the paragraph under {max_words} words.
+- Keep under {max_words} words.
 
 Style:
 {tone}
@@ -117,12 +126,29 @@ Task:
 Source text:
 {source_text}
 
-Paragraph:
+Output:
 """.strip()
 
-        print("\n[LLM] Starting generation...")
-        print(f"[LLM] Model: {self.model_path}")
-        print(f"[LLM] Prompt length (chars): {len(prompt)}")
+        # =====================================================
+        # 🔥 INPUT LOGGING
+        # =====================================================
+
+        self._log("MODEL PATH", self.model_path)
+        self._log("PROMPT LENGTH (CHARS)", len(prompt))
+
+        approx_tokens = int(len(prompt) / 4)
+        self._log("APPROX TOKEN COUNT", approx_tokens)
+
+        self._log("INSTRUCTIONS", instructions)
+        self._log("TONE", tone)
+        self._log("MAX WORDS", max_words)
+        self._log("SOURCE TEXT (TRUNCATED)", source_text)
+
+        self._log("FULL PROMPT PREVIEW", prompt[:1200])
+
+        # =====================================================
+        # RUN MODEL
+        # =====================================================
 
         process = subprocess.Popen(
             [
@@ -132,7 +158,7 @@ Paragraph:
                 "-no-cnv",
                 "--no-warmup",
                 "--no-perf",
-                "-n", "200",
+                "-n", "512",
                 "--temp", "0.2",
                 "--top-p", "0.9",
                 "--repeat-penalty", "1.1",
@@ -151,6 +177,9 @@ Paragraph:
 
         process.wait()
 
+        duration = round(time.time() - start_time, 2)
+        self._log("GENERATION TIME (seconds)", duration)
+
         if process.returncode != 0:
             raise RuntimeError(
                 f"Llama process failed with exit code {process.returncode}"
@@ -158,41 +187,46 @@ Paragraph:
 
         raw = "".join(output_lines).strip()
 
+        # =====================================================
+        # RAW OUTPUT LOGGING
+        # =====================================================
+
+        self._log("RAW MODEL OUTPUT", raw)
+
         if not raw:
-            print("[LLM] No output received.\n")
+            self._log("ERROR", "No output received")
             return ""
 
-        # 🔥 Extract only the real output section
         cleaned_raw = self._extract_real_output(raw)
 
+        self._log("EXTRACTED OUTPUT", cleaned_raw)
+
         if not cleaned_raw:
-            print("[LLM] Output empty after extraction.\n")
+            self._log("ERROR", "Empty after extraction")
             return ""
 
         cleaned_raw = cleaned_raw.strip()
 
         # =====================================================
-        # JSON HANDLING
+        # JSON DETECTION
         # =====================================================
 
         if cleaned_raw.startswith("{") or cleaned_raw.startswith("["):
             try:
-                json.loads(cleaned_raw)  # validate JSON
-                print("[LLM] JSON output detected and validated.\n")
-                print(cleaned_raw, "\n")
+                parsed = json.loads(cleaned_raw)
+                self._log("JSON OUTPUT VALIDATED", parsed)
                 return cleaned_raw
             except Exception as e:
-                print("[LLM] JSON validation failed. Returning cleaned text.")
-                print("Error:", e)
+                self._log("JSON VALIDATION FAILED", str(e))
 
         # =====================================================
-        # NORMAL PARAGRAPH HANDLING
+        # CLEANING
         # =====================================================
 
         cleaned_text = self._clean_llm_paragraph(cleaned_raw)
 
-        print("[LLM] Final returned text:\n")
-        print(cleaned_text, "\n")
-        print("[LLM] Generation complete.\n")
+        self._log("FINAL CLEANED OUTPUT", cleaned_text)
+
+        self._log("PIPELINE COMPLETE", "Returning final text to Node")
 
         return cleaned_text

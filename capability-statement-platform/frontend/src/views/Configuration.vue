@@ -249,9 +249,42 @@
             />
             <span id="opt-track">Include track record</span>
           </label>
+           <div class="w-full border-t my-2"></div>
+
+  <!-- Paraphrase label -->
+<p class="section-title w-full">Paraphrase Options</p>  <!-- Paraphrase options -->
+  <label class="checkbox-row">
+    <input type="checkbox" value="deal_summary"
+      v-model="capStore.manualFields.paraphrase_options" />
+    <span>Deal Summary</span>
+  </label>
+
+  <label class="checkbox-row">
+    <input type="checkbox" value="significant_features"
+      v-model="capStore.manualFields.paraphrase_options" />
+    <span>Significant Features</span>
+  </label>
+
+  <label class="checkbox-row">
+    <input type="checkbox" value="client_names"
+      v-model="capStore.manualFields.paraphrase_options" />
+    <span>Client / Party Names</span>
+  </label>
+
+  <label class="checkbox-row">
+    <input type="checkbox" value="deal_value"
+      v-model="capStore.manualFields.paraphrase_options" />
+    <span>Deal Value</span>
+  </label>
+
+  <label class="checkbox-row">
+    <input type="checkbox" value="deal_dates"
+      v-model="capStore.manualFields.paraphrase_options" />
+    <span>Start / Completion Date</span>
+  </label>
         </div>
       </article>
-
+ 
       <!-- Card 2: Team & recognition -->
       <article class="card config-card">
         <div class="card-header">
@@ -260,27 +293,27 @@
         </div>
 
         <!-- Practices -->
-        <p class="section-title">Practice areas</p>
-        <div class="flex flex-wrap gap-2 mb-6">
-          <label
-            v-for="p in practices"
-            :key="p"
-            class="practice-pill"
-            :class="{ 'practice-pill-active': (capStore.manualFields.practice_list || []).includes(p) }"
-          >
-            <input
-              type="checkbox"
-              :value="p"
-              v-model="capStore.manualFields.practice_list"
-              class="sr-only"
-              :aria-label="`Toggle ${p}`"
-            />
-            <span>{{ p }}</span>
-          </label>
-        </div>
-        <p v-if="practices.length === 0" class="text-muted text-sm mb-6">
-          Select deals in Aggregation to see practice areas here.
-        </p>
+          <p class="section-title">Practice areas</p>
+          <div class="flex flex-wrap gap-2 mb-6">
+            <label
+              v-for="p in practices"
+              :key="p"
+              class="practice-pill"
+              :class="{ 'practice-pill-active': (capStore.manualFields.practice_list || []).includes(p) }"
+            >
+              <input
+                type="checkbox"
+                :value="p"
+                v-model="capStore.manualFields.practice_list"
+                class="sr-only"
+                :aria-label="`Toggle ${p}`"
+              />
+              <span>{{ p }}</span>
+            </label>
+          </div>
+          <p v-if="practices.length === 0" class="text-muted text-sm mb-6">
+            Select deals in Aggregation to see practice areas here.
+          </p>
 
         <!-- Lawyer roles + Lead (exactly 2 required) -->
         <p class="section-title">Lawyer roles</p>
@@ -419,25 +452,50 @@ const lawyers = computed(() =>
 const awards = computed(() =>
   dataStore.selectedAwards.length ? dataStore.selectedAwards : [{ id: 1 }]
 )
+const normalizePG = (pg) => {
+  if (!pg) return []
 
+  // Case 1: already array
+  if (Array.isArray(pg)) {
+    return pg.flatMap(item =>
+      String(item)
+        .replace(/\u00A0/g, ' ')        // fix weird spaces
+        .replace(/\s*;\s*/g, ',')       // convert ; → ,
+        .split(',')
+        .map(p => p.replace(/\s+/g, ' ').trim())
+        .filter(Boolean)
+    )
+  }
+
+  // Case 2: JSON string
+  if (typeof pg === 'string' && pg.trim().startsWith('[')) {
+    try {
+      const parsed = JSON.parse(pg)
+      if (Array.isArray(parsed)) {
+        return normalizePG(parsed)
+      }
+    } catch {}
+  }
+
+  // Case 3: normal string
+  if (typeof pg === 'string') {
+    return pg
+      .replace(/\u00A0/g, ' ')
+      .replace(/\s*;\s*/g, ',')
+      .split(',')
+      .map(p => p.replace(/\s+/g, ' ').trim())
+      .filter(Boolean)
+  }
+
+  return []
+}
 const practices = computed(() => {
   const set = new Set()
-  dataStore.selectedDeals.forEach((d) => {
-    if (!d.deal_pg) return
-    let pgs = []
-    if (Array.isArray(d.deal_pg)) {
-      pgs = d.deal_pg
-    } else if (typeof d.deal_pg === 'string') {
-      try {
-        const parsed = JSON.parse(d.deal_pg)
-        if (Array.isArray(parsed)) pgs = parsed
-        else pgs = d.deal_pg.split(',')
-      } catch {
-        pgs = d.deal_pg.split(',')
-      }
-    }
-    pgs.forEach((pg) => pg && set.add(pg.trim()))
+
+  dataStore.selectedDeals.forEach(d => {
+    normalizePG(d.deal_pg).forEach(pg => set.add(pg))
   })
+
   return [...set]
 })
 
@@ -600,5 +658,25 @@ async function generate() {
   .select-sm {
     max-width: none;
   }
+}
+.paraphrase-card {
+  @apply flex items-center gap-3 px-4 py-3 rounded-xl border cursor-pointer transition-all duration-150;
+  border-color: var(--color-border);
+  background-color: var(--color-neutral-light);
+}
+
+.paraphrase-card:hover {
+  border-color: var(--color-primary);
+  background-color: var(--color-primary-light);
+}
+
+.paraphrase-card input {
+  @apply w-4 h-4;
+  accent-color: var(--color-primary);
+}
+
+.paraphrase-card span {
+  @apply text-sm font-medium;
+  color: var(--color-text);
 }
 </style>

@@ -45,6 +45,8 @@ export const useCapStatementStore = defineStore('capStatement', () => {
   lead_partner_ids: [],
   lawyer_roles: {},
   most_rel_award: [],
+  paraphrase_options: [],
+
 
   show_highlights: false,
   show_track_record: false
@@ -140,8 +142,12 @@ export const useCapStatementStore = defineStore('capStatement', () => {
         most_rel_award: [],
         show_highlights: false,
         show_track_record: false,
+        paraphrase_options: [],
         ...mf,
         // Overwrite with normalised versions
+          paraphrase_options: Array.isArray(mf.paraphrase_options)
+          ? mf.paraphrase_options
+          : [],
         lawyer_roles: normalisedRoles,
         lead_partner_ids: normalisedLeadIds,
         most_rel_award: normalisedAwardIds

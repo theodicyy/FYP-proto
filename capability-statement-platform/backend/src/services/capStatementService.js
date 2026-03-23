@@ -38,17 +38,30 @@ const normalizePG = (pg) => {
   if (!pg) return []
 
   // If already array (JSON column)
-  if (Array.isArray(pg)) {
-    return pg.map(p => String(p).trim()).filter(Boolean)
-  }
+if (Array.isArray(pg)) {
+  return pg.flatMap(item =>
+    String(item)
+      .replace(/\u00A0/g, ' ')        // fix weird spaces
+      .replace(/\s*;\s*/g, ',')       // convert ; → ,
+      .split(',')
+      .map(p => p.replace(/\s+/g, ' ').trim())
+      .filter(Boolean)
+  )
+}
 
   // If JSON string like '["A","B"]'
   if (typeof pg === 'string' && pg.trim().startsWith('[')) {
     try {
       const parsed = JSON.parse(pg)
       if (Array.isArray(parsed)) {
-        return parsed.map(p => String(p).trim()).filter(Boolean)
-      }
+return parsed.flatMap(item =>
+  String(item)
+    .replace(/\u00A0/g, ' ')
+    .replace(/\s*;\s*/g, ',')
+    .split(',')
+    .map(p => p.replace(/\s+/g, ' ').trim())
+    .filter(Boolean)
+)      }
     } catch (e) {
       // fall through to split
     }
@@ -56,8 +69,11 @@ const normalizePG = (pg) => {
 
   // If normal comma-separated string
   if (typeof pg === 'string') {
-    return pg.split(',').map(p => p.trim()).filter(Boolean)
-  }
+return pg
+  .replace(/\u00A0/g, ' ')   // 🔥 fix weird spaces
+  .split(/[,;]+/)            // 🔥 split comma OR semicolon
+  .map(p => p.replace(/\s+/g, ' ').trim()) // normalize spaces
+  .filter(Boolean)  }
 
   return []
 }
@@ -81,7 +97,9 @@ const normalizePG = (pg) => {
       // =====================================================
       // EXTRA GENERAL AWARDS (TOP 3, NO DUPLICATES)
       // =====================================================
-
+// 🔥 FULL DB (for knowledge pool)
+const [allDeals] = await pool.query(`SELECT * FROM deals`)
+const [allAwards] = await pool.query(`SELECT * FROM awards`)
       // IDs already selected
       const selectedAwardIds = awards.map(a => a.id)
 
@@ -141,7 +159,9 @@ const normalizePG = (pg) => {
       pg: l.practice_group || '',
       email: l.email || '',
       phone: l.phone || '',
-      admissions: l.admissions || ''
+      admissions: l.qualifications || '',
+        awards: l.lawyer_awards || ''   // 👈 ADD THIS
+
     }))
 
     const formatDesc = l => l.pg ? `${l.role} – ${l.pg}` : l.role
@@ -153,33 +173,83 @@ const normalizePG = (pg) => {
     const lawyer4 = partners[1]
 
     // =====================================================
-    // DEALS GROUPED BY PRACTICE GROUP
-    // =====================================================
+// ✅ SMART DEAL SELECTION (PG → fallback to transaction_types)
+// =====================================================
 
-    const deal_pg_map = {}
+const normalizeText = (s) =>
+  String(s || '').toLowerCase().trim()
 
-    deals.forEach(d => {
-      normalizePG(d.deal_pg || 'General').forEach(pg => {
-        if (!deal_pg_map[pg]) deal_pg_map[pg] = []
+const normalizeTransactionTypes = (val) => {
+  if (!val) return []
+  return String(val)
+    .split(';')
+    .map(v => v.trim())
+    .filter(Boolean)
+}
 
-        deal_pg_map[pg].push({
-          client_name: d.client_name || '',
-          deal_summary: d.deal_summary || ''
-        })
-      })
-    })
+// 1. Get selected PGs
+const selectedPGs =
+  manualFields.practice_list?.length > 0
+    ? manualFields.practice_list
+    : [manualFields.main_practice_area].filter(Boolean)
 
-    const deal_pg_groups = Object.keys(deal_pg_map).map(pg => ({
-      pg,
-      deals: deal_pg_map[pg]
-    }))
+// 2. Match deals by PG
+let matchedDeals = deals.filter(d => {
+  const pgs = normalizePG(d.deal_pg).map(normalizeText)
+  return selectedPGs.some(pg =>
+    pgs.includes(normalizeText(pg))
+  )
+})
 
-    const deal_rows = deals.map(d => ({
-      client_name: d.client_name || '',
-      deal_summary: d.deal_summary || '',
-      deal_pg: d.deal_pg || ''
-    }))
+// 3. Limit to max 3
+let finalDeals = matchedDeals.slice(0, 3)
 
+// 4. Fallback using transaction_types if not enough
+if (finalDeals.length < 3) {
+
+  const existingIds = new Set(finalDeals.map(d => d.id))
+
+  const fallbackDeals = deals.filter(d => {
+    if (existingIds.has(d.id)) return false
+
+    const types = normalizeTransactionTypes(d.transaction_types).map(normalizeText)
+
+    return selectedPGs.some(pg =>
+      types.includes(normalizeText(pg))
+    )
+  })
+
+  finalDeals = [
+    ...finalDeals,
+    ...fallbackDeals.slice(0, 3 - finalDeals.length)
+  ]
+}
+
+// 🔥 FINAL FALLBACK — guarantee minimum 3 deals
+if (finalDeals.length < 3) {
+  const existingIds = new Set(finalDeals.map(d => d.id))
+
+  const remainingDeals = deals.filter(d => !existingIds.has(d.id))
+
+  finalDeals = [
+    ...finalDeals,
+    ...remainingDeals.slice(0, 3 - finalDeals.length)
+  ]
+}
+
+// 5. Group into ONE PG group (clean for docx)
+const deal_pg_groups = selectedPGs.map(pg => ({
+  pg,
+  deals: finalDeals.map(d => ({
+    client_name: d.client_name || '',
+    deal_summary: d.deal_summary || ''
+  }))
+}))
+const deal_rows = finalDeals.map(d => ({
+  client_name: d.client_name || '',
+  deal_summary: d.deal_summary || '',
+  deal_pg: d.deal_pg || ''
+}))
     // =====================================================
     // MAIN PRACTICE AREA (from deal_industry dropdown or manual)
     // =====================================================
@@ -189,28 +259,39 @@ const normalizePG = (pg) => {
     // PREVIOUS CLIENTS (up to 8) from deals by selected deal_industry
     // =====================================================
     let previous_client1 = ''
-    let previous_client2 = ''
-    let previous_client3 = ''
-    let previous_client4 = ''
-    let previous_client5 = ''
-    let previous_client6 = ''
-    let previous_client7 = ''
-    let previous_client8 = ''
-    if (manualFields.deal_industry) {
-      const [industryDeals] = await pool.query(
-        `SELECT client_name FROM deals WHERE deal_industry = ? ORDER BY id ASC LIMIT 8`,
-        [manualFields.deal_industry]
-      )
-      const clientNames = industryDeals.map((d) => (d.client_name != null ? String(d.client_name).trim() : '')).filter(Boolean)
-      previous_client1 = clientNames[0] || ''
-      previous_client2 = clientNames[1] || ''
-      previous_client3 = clientNames[2] || ''
-      previous_client4 = clientNames[3] || ''
-      previous_client5 = clientNames[4] || ''
-      previous_client6 = clientNames[5] || ''
-      previous_client7 = clientNames[6] || ''
-      previous_client8 = clientNames[7] || ''
-    }
+let previous_client2 = ''
+let previous_client3 = ''
+let previous_client4 = ''
+let previous_client5 = ''
+let previous_client6 = ''
+let previous_client7 = ''
+let previous_client8 = ''
+
+if (manualFields.deal_industry) {
+
+  // Pull all deals (we filter in JS because deal_pg is JSON-ish)
+  const [allDeals] = await pool.query(
+    `SELECT client_name, deal_pg FROM deals ORDER BY id ASC`
+  )
+
+  const matchedDeals = allDeals.filter(d => {
+    const pgs = normalizePG(d.deal_pg)
+    return pgs.includes(manualFields.deal_industry)
+  })
+
+  const clientNames = matchedDeals
+    .map(d => d.client_name?.trim())
+    .filter(Boolean)
+
+  previous_client1 = clientNames[0] || ''
+  previous_client2 = clientNames[1] || ''
+  previous_client3 = clientNames[2] || ''
+  previous_client4 = clientNames[3] || ''
+  previous_client5 = clientNames[4] || ''
+  previous_client6 = clientNames[5] || ''
+  previous_client7 = clientNames[6] || ''
+  previous_client8 = clientNames[7] || ''
+}
 
     // =====================================================
     // DEAL TABLE GROUPS (reactive: 1 table per 3 deals)
@@ -239,11 +320,17 @@ const normalizePG = (pg) => {
     // and match deals; otherwise derive labels from the deals themselves.
     // Groups of 3 → one pair of tables. 1–3 = 1 group, 4–6 = 2 groups.
     // =====================================================
+const clientMatchedDeals = deals.filter(
+  d => d.client_name === manualFields.client_name
+)
 
-    const selectedPGs = manualFields.practice_list || []
 
-    const findDealByPg = pg =>
-      deals.find(d => normalizePG(d.deal_pg).includes(pg))
+const findDealByPg = pg =>
+  finalDeals.find(d =>
+    normalizePG(d.deal_pg)
+      .map(normalizeText)
+      .includes(normalizeText(pg))
+  )
 
     // Build highlight items: prefer practice_list mapping, fall back to deals directly
     let highlightItems
@@ -300,24 +387,42 @@ const normalizePG = (pg) => {
     // AWARDS GROUPED BY PG
     // =====================================================
     const clean = v => (v === null || v === undefined || v === 'null') ? '' : v 
-    const award_pg_map = {}
+// 🔥 STEP 1 — get selected practice areas (max 3)
+const selectedAwardPGs = selectedPGs.slice(0, 3)
+// 🔥 STEP 2 — helper to format award
+const formatAward = (a) => {
+  const pub = clean(a.publications)
+  return {
+    award_name: clean(a.award_name),
+    legal_pub: pub ? `${pub},` : '',
+    year: clean(a.award_year)
+  }
+}
 
-awards.forEach(a => {
-  normalizePG(a.award_pg || 'General').forEach(pg => {
-    if (!award_pg_map[pg]) award_pg_map[pg] = []
+// 🔥 STEP 3 — build award groups based on selected PGs
+const award_groups = selectedAwardPGs.map(pg => {
 
-    award_pg_map[pg].push({
-      award_name: clean(a.award_name),
-      legal_pub: clean(a.publications),
-      year: clean(a.award_year)
-    })
-  })
+  // ✅ First: try selected awards
+  let pgAwards = awards.filter(a =>
+normalizePG(a.award_pg)
+  .map(x => x.toLowerCase())
+  .includes(pg.toLowerCase())  )
+
+  // 🔁 Fallback: use ALL awards if not enough
+  if (pgAwards.length < 1) {
+    pgAwards = allAwards.filter(a =>
+normalizePG(a.award_pg)
+  .map(x => x.toLowerCase())
+  .includes(pg.toLowerCase())    )
+  }
+
+  return {
+    pg,
+    awards: pgAwards
+      .slice(0, 2) // 🔥 limit 1–2 awards
+      .map(formatAward)
+  }
 })
-
-    const award_groups = Object.keys(award_pg_map).map(pg => ({
-      pg,
-      awards: award_pg_map[pg]
-    }))
 
 const awards_list = [
   ...awards,
@@ -332,7 +437,7 @@ const awards_list = [
       pg: l.pg || '',
       email: l.email || '',
       phone: l.phone || '',
-      admissions: l.admissions || ''
+      admissions: l.qualifications || ''
     }))
 
     const lawyer_profiles = [
@@ -343,7 +448,8 @@ const awards_list = [
         desc: formatDesc(l),
         email: l.email || '',
         phone: l.phone || '',
-        admissions: l.admissions || '',
+        admissions: l.qualifications || '',
+            awards: formatLawyerAwards(l.awards), // 👈 ADD
         page_break: idx !== 0 // false for first lead, true otherwise
       })),
       ...partners.map(l => ({
@@ -353,20 +459,26 @@ const awards_list = [
         desc: formatDesc(l),
         email: l.email || '',
         phone: l.phone || '',
-        admissions: l.admissions || '',
+        admissions: l.qualifications || '',
+            awards: formatLawyerAwards(l.awards), // 👈 ADD
         page_break: true
       }))
     ]
+
+  
   // =====================================================
     // 🔥 BUILD KNOWLEDGE POOL (FULL CONTEXT TO LLM)
     // =====================================================
 
-    const knowledgePool = {
-      lawyers,
-      deals,
-      awards,
-      manual_fields: manualFields
-    }
+const knowledgePool = {
+  deals,        // selected deals (keep this)
+  awards,       // selected awards (keep this)
+
+  //all_deals: allDeals,     // 🔥 NEW
+  //all_awards: allAwards,   // 🔥 NEW
+
+  manual_fields: manualFields
+}
 
     // =====================================================
     // 🔥 DEFINE LLM TASKS HERE
@@ -399,29 +511,40 @@ Rules:
     client_short_name: manualFields.client_shortname,
     client_name: manualFields.client_name,
     existing_client_bool,
-    previous_deals: deals.filter(
-      d => d.client_name === manualFields.client_name
-    )
+
+   previous_deals:
+  clientMatchedDeals.length > 0
+    ? clientMatchedDeals
+    : finalDeals,
+
+//all_deals: allDeals
   }
 })
 
 llmTasks.push({
   template_variable: "previous_transactions",
-
-  prompt: `
+ prompt: `
 You are a senior legal drafting assistant.
 
+This text will appear immediately after:
+"We have worked on prominent transactions involving"
+
 Task:
-Select the scope of services, client industry, and client practice group from the relevant data json. 
-From the knowledge pool, select only the deals from the client industry and client practice group. From this smaller pool, select the most relevant transactions based on the scope of services, and summarise their most important details.
+Continue the phrase by describing the most relevant transactions based on the provided data.
 
 Rules:
-- Output exactly 1–2 sentences.
-- Standalone text (can be pasted as its own paragraph).
-- Factual, measured tone; no superlatives or marketing.
-- Do NOT invent missing details; omit unknowns silently.
-- No bullet points, no headings, no quotes, no commentary.
-- Keep to 45–70 words total.
+- Output MUST be a continuation phrase (NOT a full sentence).
+-Make sure grammer is correct based on what appears before it
+-Base the output directly on the provided deals; do not generalise.
+-Include key facts about the deals such as Names/values etc
+- Do NOT start with a capital letter.
+- Do NOT use "We", "Our", or the firm name.
+- Do NOT describe capabilities, sectors, or services generally.
+- ONLY describe actual transactions from the data.
+- Use concrete deal descriptions (e.g. acquisitions, financings, disputes).
+- Keep concise (30–40 words).
+- Do NOT end with a full stop.
+- No bullet points, no headings, no commentary.
 `,
 
   input_data: {
@@ -431,56 +554,30 @@ Rules:
     client_industry: manualFields.deal_industry,
     client_practice_group: manualFields.main_practice_area,
 
-    relevant_deals: deals.filter(d =>
-      d.deal_industry === manualFields.deal_industry &&
-      normalizePG(d.deal_pg).includes(manualFields.main_practice_area)
-    )
-  }
+relevant_deals: finalDeals}
+//all_deals: allDeals  }
 })
 
-llmTasks.push({
-  template_variable: "awards_list",
 
-  prompt: `
-You are a senior legal drafting assistant.
-
-Task:
-Select the practice group from the relevant data json. 
-From the knowledge pool, select 7–8 awards most relevant to the practice group provided and present them as bullet points suitable for a client-facing credentials/proposal document.
-
-Rules:
-- Output 7–8 bullet points.
-- Use the bullet symbol "• " at the start of each line.
-- Each bullet should contain: award/ranking + awarding body/publication + (year if available).
-- Keep wording consistent across bullets; avoid hype.
-- Use only the knowledge pool; do not invent facts.
-- No headings, no extra commentary.
-`,
-
-  input_data: {
-    selected_practice_group: manualFields.main_practice_area,
-
-    relevant_awards: awards.filter(a =>
-      normalizePG(a.award_pg).includes(manualFields.main_practice_area)
-    )
-  }
-})
 llmTasks.push({
   template_variable: "most_rel_award",
 
-  prompt: `
+prompt: `
 You are a senior legal drafting assistant.
 
+
+
 Task:
-Select the scope of services from the relevant data json. 
-From the knowledge pool, pick the 2 most relevant awards based on the scope of services and write a concise client-facing sentence referencing them.
+Using ONLY the selected awards provided, write a short continuation phrase referencing 1–2 of the most relevant awards.
 
 Rules:
-- Output exactly 1 sentence.
-- Must mention both awards and the awarding bodies/publications.
-- Factual, measured tone; no superlatives or marketing.
-- Use only the knowledge pool; do not invent facts.
-- No bullet points, no quotes, no commentary.
+- Always start with The Firm is recognised as 
+- Use natural flowing language (not a list).
+- Mention 1–2 awards maximum.
+- Keep concise (12–25 words).
+- Do NOT add commentary or explanation.
+- Do NOT invent or introduce new awards.
+- Do NOT end with a full stop.
 `,
 
   input_data: {
@@ -489,8 +586,9 @@ Rules:
     matter_type: manualFields.matter_type,
     selected_industry: manualFields.deal_industry,
     selected_practice_group: manualFields.main_practice_area,
-    selected_award_ids: manualFields.most_rel_award,
-    awards
+  selected_awards: awards.filter(a =>
+    manualFields.most_rel_award?.includes(a.id)
+  )
   }
 })      
 llmTasks.push({
@@ -526,43 +624,52 @@ Rules:
     client_industry: manualFields.deal_industry,
     client_practice_group: manualFields.main_practice_area,
 
-    relevant_deals: deals.filter(d =>
-      d.deal_industry === manualFields.deal_industry &&
-      normalizePG(d.deal_pg).includes(manualFields.main_practice_area)
-    )
-  }
+relevant_deals: finalDeals}
+//all_deals: allDeals  }
 })
 llmTasks.push({
-  template_variable: "track_record_table",
+  template_variable: "track_record_summary",
 
   prompt: `
 You are a senior legal drafting assistant.
 
 Task:
-Select the scope of services, client industry, and client practice group from the relevant data json. 
-From the knowledge pool, select only the deals from the client industry and client practice group. From this smaller pool, select the most relevant transactions based on the scope of services, and group them by client name. For each client, provide a concise one-sentence summary of the relevant work.
+Write ONE short introductory sentence describing the types of transactions.
 
 Rules:
-- Output MUST be valid JSON only (no extra text).
-- JSON format:
-  [
-    {""client"":""..."", ""summary"":""One factual sentence summarising relevant work (no hype).""},
-    {""client"":""..."", ""summary"":""...""}
-  ]
-- Each summary must be 18–30 words.
-- Use only the knowledge pool; do not invent facts.
+- Exactly 1-2 sentences
+- 20–25 words MAX
+- Focus on transaction types (e.g. acquisitions, financings, investments)
+- Professional, factual tone
 `,
 
   input_data: {
-    scope_of_work: manualFields.scope_of_work,
-    scope_of_work_list: manualFields.scope_of_work_list,
-    client_industry: manualFields.deal_industry,
-    client_practice_group: manualFields.main_practice_area,
+    relevant_deals: finalDeals
+  }
+})
+llmTasks.push({
+  template_variable: "track_record_items",
 
-    relevant_deals: deals.filter(d =>
-      d.deal_industry === manualFields.deal_industry &&
-      normalizePG(d.deal_pg).includes(manualFields.main_practice_area)
-    )
+  prompt: `
+You are a senior legal drafting assistant.
+
+Task:
+Select up to 3 relevant transactions.
+
+Rules:
+- Output MUST be valid JSON ONLY
+- Each summary MUST be 15–18 words MAX
+- Format:
+[
+  { "client": "string", "summary": "string" },
+  { "client": "string", "summary": "string" }
+]
+- Keep concise and factual
+- Do NOT include extra text outside JSON
+`,
+
+  input_data: {
+    relevant_deals: finalDeals
   }
 })
 
@@ -598,11 +705,8 @@ Rules:
     client_industry: manualFields.deal_industry,
     client_practice_group: manualFields.main_practice_area,
 
-    relevant_deals: deals.filter(d =>
-      d.deal_industry === manualFields.deal_industry &&
-      normalizePG(d.deal_pg).includes(manualFields.main_practice_area)
-    )
-  }
+relevant_deals: finalDeals}
+//all_deals: allDeals  }
 })
 
 
@@ -618,55 +722,53 @@ Rules:
         knowledgePool,
         llmTasks
       )
+      console.log("🧠 RAW LLM VARIABLES:", JSON.stringify(llmVariables, null, 2))
+console.log("🧠 RAW track_record_items:", llmVariables.track_record_items)
+console.log("🧠 TYPE track_record_items:", typeof llmVariables.track_record_items)
       console.log("🔥 LLM VARIABLES RETURNED:");
       console.dir(llmVariables, { depth: null });
     }
+    // 🔥 STEP 4 — FLATTEN deal_rows for paraphrasing
+deal_rows.forEach((row, idx) => {
+  llmVariables[`deal_summary_${idx}`] = row.deal_summary
+})
+
     // =====================================================
     // Cleaning
     // =====================================================
 function extractAndFixJson(raw) {
   if (!raw) return null;
 
-  let text = raw.trim();
-
-  // Remove "Paragraph:" prefix (can appear multiple times)
-  text = text.replace(/Paragraph:\s*/gi, '');
-
-  // Keep only from first [ or {
-  const firstBracket = text.indexOf('[');
-  const firstBrace = text.indexOf('{');
-
-  let start = -1;
-
-  if (firstBracket !== -1 && firstBrace !== -1) {
-    start = Math.min(firstBracket, firstBrace);
-  } else {
-    start = firstBracket !== -1 ? firstBracket : firstBrace;
-  }
-
-  if (start === -1) return null;
-
-  text = text.slice(start);
-
-  // Fix double-double quotes
-  text = text.replace(/""/g, '"');
-
-  // Remove stray ? inside JSON
-  text = text.replace(/"\?\s*,/g, '",');
-
-  // Remove trailing incomplete fragments
-  const lastBracket = text.lastIndexOf(']');
-  if (lastBracket !== -1) {
-    text = text.slice(0, lastBracket + 1);
-  }
-
+  // ✅ STEP 1 — Try direct parse (PRIMARY)
   try {
-    return JSON.parse(text);
+  const fixed = raw.replace(/""/g, '"') // ✅ use raw, not text
+  return JSON.parse(fixed);
   } catch (err) {
-    console.error("JSON parse failed after cleaning:", err);
-    console.log("Cleaned JSON attempt:\n", text);
-    return null;
+    console.warn("⚠️ Direct JSON parse failed:", err.message);
   }
+
+let text = raw.trim();
+
+const firstBracket = text.indexOf('[');
+const firstBrace = text.indexOf('{');
+
+let start = -1;
+
+if (firstBracket !== -1 && firstBrace !== -1) {
+  start = Math.min(firstBracket, firstBrace);
+} else {
+  start = firstBracket !== -1 ? firstBracket : firstBrace;
+}
+
+if (start !== -1) {
+  text = text.slice(start);
+}
+
+try {
+  return JSON.parse(text);
+} catch {
+  return null;
+}
 }
 
 function cleanPreviousSummary(text) {
@@ -698,108 +800,209 @@ function cleanAwardsList(text) {
 
   let cleaned = text.trim()
 
-  // Fix broken bullet encoding
+  // Fix encoding issues
   cleaned = cleaned.replace(/ï¿½/g, '•')
 
-  // Split by bullet symbol
-  let items = cleaned
-    .split('•')
-    .map(i => i.trim())
-    .filter(Boolean)
+  // Split into lines first (handles broken line breaks)
+  let lines = cleaned.split('\n').map(l => l.trim())
 
-  // Limit to 8 maximum
-  items = items.slice(0, 8)
+  // Keep ONLY lines that look like bullets
+  lines = lines.filter(line =>
+    line.startsWith('•') || line.startsWith('-') || line.startsWith('*')
+  )
 
-  // Normalize format
-  items = items.map(item => {
+  // Normalize bullets
+  lines = lines.map(line => {
+    // Remove any existing bullet symbols
+    line = line.replace(/^[•\-\*\u25CF]\s*/, '')
 
-    // Extract year
-    const yearMatch = item.match(/\b(20\d{2})\b/)
-    const year = yearMatch ? yearMatch[1] : ''
+    // Remove anything after weird sentence starts
+    line = line.split('The following')[0]
 
-    // Extract awarding body inside parentheses
-    const pubMatch = item.match(/\(([^)]+)\)/)
-    const publication = pubMatch ? pubMatch[1] : ''
+    // Remove trailing commas
+    line = line.replace(/,\s*$/, '')
+    // Ensure consistent dash formatting
+    line = line.replace(/\s*,\s*/g, ' – ')
+    line = line.replace(/\s*-\s*/g, ' – ')
 
-    // Remove all parentheses content from main title
-    let title = item.replace(/\([^)]*\)/g, '').trim()
-
-    // Remove duplicate year words
-    title = title.replace(/\b20\d{2}\b/g, '').trim()
-
-    return `• ${title}${publication ? ' – ' + publication : ''}${year ? ' (' + year + ')' : ''}`
+    return `• ${line.trim()}`
   })
 
-  return items.join('\n')
-}
-llmVariables.awards_list =
-  cleanAwardsList(llmVariables.awards_list)
+  // Remove empty / garbage lines
+  lines = lines.filter(l => l.length > 3)
 
-  function mapLLMTrackRecordToDealGroups(raw) {
-  const parsed = extractAndFixJson(raw);
-  if (!parsed) return [];
-
-  return parsed.map(group => ({
-    pg: group.practice_group || '',
-    deals: (group.items || []).map(item => ({
-      deal_summary: item.line || ''
-    }))
-  }));
+  // Limit to 8
+  return lines.slice(0, 8).join('\n')
 }
 
-llmVariables.deal_pg_groups =
-  mapLLMTrackRecordToDealGroups(
-    llmVariables.track_record_bullet_list
-  );
+function buildCleanAwardsList(selectedAwards, generalAwards) {
+  const clean = v => (v === null || v === 'null' ? '' : v)
 
+  // 🔥 Take ONLY 2 general awards
+  const topGeneral = generalAwards.slice(0, 2)
 
-  function mapTrackRecordTableToFlatFields(raw) {
-  const parsed = extractAndFixJson(raw);
-  if (!parsed) {
-    return {
-      pg_client_name1: '',
-      pg_client_name2: '',
-      pg_client_name3: '',
-      deal_desc_pg1: '',
-      deal_desc_pg2: '',
-      deal_desc_pg3: ''
-    };
+  const combined = [
+    ...selectedAwards,
+    ...topGeneral
+  ]
+
+  const seen = new Set()
+
+  const lines = combined
+    .map(a => {
+      const name = clean(a.award_name)
+      const pub = clean(a.publications)
+      const year = clean(a.award_year)
+
+      let line = name
+
+      if (pub) line += ` – ${pub}`
+      if (year) line += ` (${year})`
+
+      return line.trim()
+    })
+    .filter(Boolean)
+    .filter(line => {
+      if (seen.has(line)) return false
+      seen.add(line)
+      return true
+    })
+
+  return lines
+    .slice(0, 6) // 🔥 cap total
+    .map(l => `• ${l}`)
+    .join('\n')
+}
+llmVariables.awards_list = buildCleanAwardsList(
+  awards,
+  top3GeneralAwards
+)
+function formatLawyerAwards(raw) {
+  if (!raw) return ''
+
+  let items = []
+
+  // Case 1: already array
+  if (Array.isArray(raw)) {
+    items = raw
   }
 
-  return {
-    pg_client_name1: parsed[0]?.client || '',
-    pg_client_name2: parsed[1]?.client || '',
-    pg_client_name3: parsed[2]?.client || '',
+  // Case 2: JSON string
+  else if (typeof raw === 'string' && raw.trim().startsWith('[')) {
+    try {
+      const parsed = JSON.parse(raw)
+      if (Array.isArray(parsed)) items = parsed
+    } catch (e) {}
+  }
 
-    deal_desc_pg1: parsed[0]?.summary || '',
-    deal_desc_pg2: parsed[1]?.summary || '',
-    deal_desc_pg3: parsed[2]?.summary || ''
-  };
+  // Case 3: messy string (your case)
+  else if (typeof raw === 'string') {
+    // Normalize weird spacing
+    let cleaned = raw
+      .replace(/\s*,\s*/g, ',')   // normalize commas
+      .replace(/\s{2,}/g, ' ')    // collapse spaces
+      .trim()
+
+    // Split on comma ONLY if followed by capital letter
+    // (heuristic: new award usually starts uppercase)
+    items = cleaned.split(/,(?=\s*[A-Z])/)
+  }
+
+  // Final clean
+  items = items
+    .map(a => a.trim())
+    .filter(Boolean)
+
+  // Remove duplicates
+  items = [...new Set(items)]
+
+  // Format as bullets (1 per line)
+  return items
+    .map(a => `• ${a}`)
+    .join('\n')
 }
 
-Object.assign(
-  llmVariables,
-  mapTrackRecordTableToFlatFields(
-    llmVariables.track_record_table
-  )
-);
+const FIELD_TYPES = {
+  previous_summary: "continuation",
+  most_rel_award: "continuation",
+
+  track_record_table: "sentence",
+
+  deal_desc_pg1: "sentence",
+  deal_desc_pg2: "sentence",
+  deal_desc_pg3: "sentence",
+
+  highlights_desc_pg1: "sentence",
+  highlights_desc_pg2: "sentence",
+  highlights_desc_pg3: "sentence",
+  deal_summary: "sentence"
+}
 
 
+
+// 🔥 NEW SAFE TRACK RECORD MAPPING
+console.log("📦 BEFORE PARSE (RAW STRING):")
+console.log(llmVariables.track_record_items)
+const parsedItems = extractAndFixJson(llmVariables.track_record_items);
+
+const items = Array.isArray(parsedItems) ? parsedItems : [];console.log("📦 PARSED ITEMS:", items)
+console.log("📦 ITEMS LENGTH:", items?.length)
+console.log("📦 FIRST ITEM:", items?.[0])
+console.log("📦 FIRST CLIENT:", items?.[0]?.client)
+console.log("📦 FIRST SUMMARY:", items?.[0]?.summary)
+
+console.log("🧩 MAPPING INPUT CHECK:")
+console.log({
+  item0: items[0],
+  item1: items[1],
+  item2: items[2]
+})
+Object.assign(llmVariables, {
+  track_record_table: llmVariables.track_record_summary || '',
+
+  pg_client_name1: items[0]?.client || '',
+  pg_client_name2: items[1]?.client || '',
+  pg_client_name3: items[2]?.client || '',
+
+  deal_desc_pg1: items[0]?.summary || '',
+  deal_desc_pg2: items[1]?.summary || '',
+  deal_desc_pg3: items[2]?.summary || ''
+})
+// 🔥 GUARANTEE fields always exist (prevents crashes)
+llmVariables.deal_desc_pg1 = llmVariables.deal_desc_pg1 || ''
+llmVariables.deal_desc_pg2 = llmVariables.deal_desc_pg2 || ''
+llmVariables.deal_desc_pg3 = llmVariables.deal_desc_pg3 || ''
+
+llmVariables.pg_client_name1 = llmVariables.pg_client_name1 || ''
+llmVariables.pg_client_name2 = llmVariables.pg_client_name2 || ''
+llmVariables.pg_client_name3 = llmVariables.pg_client_name3 || ''
+
+console.log("✅ AFTER MAPPING:", {
+  pg1: llmVariables.pg_client_name1,
+  pg2: llmVariables.pg_client_name2,
+  pg3: llmVariables.pg_client_name3,
+  deal1: llmVariables.deal_desc_pg1,
+  deal2: llmVariables.deal_desc_pg2,
+  deal3: llmVariables.deal_desc_pg3
+})
 function mapHighlightsToFlatFields(raw) {
   const parsed = extractAndFixJson(raw);
-  if (!parsed) {
-    return {
-      deals_pg1: '',
-      deals_pg2: '',
-      deals_pg3: '',
-      highlights_name_pg1: '',
-      highlights_desc_pg1: '',
-      highlights_name_pg2: '',
-      highlights_desc_pg2: '',
-      highlights_name_pg3: '',
-      highlights_desc_pg3: ''
-    };
-  }
+
+if (!Array.isArray(parsed)) {
+  console.warn("⚠️ Invalid highlights JSON — skipping mapping");
+
+  return {
+    deals_pg1: '',
+    deals_pg2: '',
+    deals_pg3: '',
+    highlights_name_pg1: '',
+    highlights_desc_pg1: '',
+    highlights_name_pg2: '',
+    highlights_desc_pg2: '',
+    highlights_name_pg3: '',
+    highlights_desc_pg3: ''
+  };
+}
 
   const flat = {
     deals_pg1: parsed[0]?.practice_group || '',
@@ -822,22 +1025,256 @@ function mapHighlightsToFlatFields(raw) {
   return flat;
 }
 
-Object.assign(
-  llmVariables,
-  mapHighlightsToFlatFields(
-    llmVariables.highlights_alternative
-  )
-);
+const highlightFields = mapHighlightsToFlatFields(
+  llmVariables.highlights_alternative
+)
+
+if (highlightFields) {
+  Object.assign(llmVariables, highlightFields)
+}
     // =====================================================
+// 🔥 PARAPHRASE LLM CALL (NEW)
+// =====================================================
+  const PARAPHRASE_RULES = {
+
+  significant_features: {
+    instruction: "omit significant features of the transaction",
+    fields: [
+      "previous_transactions",
+      "deal_desc_pg1",
+      "deal_desc_pg2",
+      "deal_desc_pg3",
+      "highlights_desc_pg1",
+      "highlights_desc_pg2",
+      "highlights_desc_pg3",
+      "track_record_table",       
+      "deal_summary"
+
+    ]
+  },
+
+  client_names: {
+    instruction: "replace client names with generic industry descriptions",
+    fields: [
+      "previous_transactions",
+      "track_record_table",  
+      "deal_desc_pg1",
+      "deal_desc_pg2",
+      "deal_desc_pg3",
+      "highlights_desc_pg1",
+      "highlights_desc_pg2",
+      "highlights_desc_pg3",
+      "pg_client_name1",
+      "pg_client_name2",
+      "pg_client_name3",
+      "highlights_name_pg1",
+      "highlights_name_pg2",
+      "highlights_name_pg3",
+      "deal_summary"
+    ]
+  },
+
+  deal_value: {
+    instruction: "omit the value of the deal",
+    fields: [
+      "previous_transactions",
+      "track_record_table",
+      "deal_desc_pg1",
+      "deal_desc_pg2",
+      "deal_desc_pg3",
+      "highlights_desc_pg1",
+      "highlights_desc_pg2",
+      "highlights_desc_pg3",
+      "deal_summary"
+    ]
+  },
+
+  deal_dates: {
+    instruction: "omit the start/completion date of the deal",
+    fields: [
+      "previous_transactions",
+      "track_record_table", 
+      "deal_desc_pg1",
+      "deal_desc_pg2",
+      "deal_desc_pg3",
+      "highlights_desc_pg1",
+      "highlights_desc_pg2",
+      "highlights_desc_pg3",
+      "deal_summary"
+    ]
+  }
+
+}
+const paraphraseOptions = Array.isArray(manualFields.paraphrase_options)
+  ? manualFields.paraphrase_options
+  : []
+const fieldInstructions = {}
+
+paraphraseOptions.forEach(option => {
+  const rule = PARAPHRASE_RULES[option]
+  if (!rule) return
+
+  rule.fields.forEach(field => {
+    if (!fieldInstructions[field]) {
+      fieldInstructions[field] = []
+    }
+    fieldInstructions[field].push(rule.instruction)
+  })
+})
+
+if (paraphraseOptions.length > 0) {
+
+  // 🔥 FORCE these fields
+  [
+    "pg_client_name1",
+    "pg_client_name2",
+    "pg_client_name3",
+    "deal_desc_pg1",
+    "deal_desc_pg2",
+    "deal_desc_pg3"
+  ].forEach(field => {
+    if (!fieldInstructions[field]) {
+      fieldInstructions[field] = []
+    }
+  })
+
+  const paraphraseInput = {}
+
+  Object.keys(fieldInstructions).forEach(field => {
+    if (!llmVariables[field]) return
+
+    paraphraseInput[field] = {
+      text: llmVariables[field],
+      instructions: fieldInstructions[field],
+      type: FIELD_TYPES[field] || "sentence"
+    }
+  })
+
+  // 🔥 STEP 5 — manually include flattened deal summaries
+  deal_rows.forEach((row, idx) => {
+    const key = `deal_summary_${idx}`
+
+    if (!llmVariables[key]) return
+
+    paraphraseInput[key] = {
+      text: llmVariables[key],
+      instructions: fieldInstructions["deal_summary"] || [],
+      type: "sentence"
+    }
+  })
+
+  const paraphraseTask = {
+    template_variable: "paraphrased_bundle",
+    prompt: `
+You are a legal drafting assistant.
+
+Task:
+Paraphrase each provided field according to its instructions and type.
+
+Rules:
+- Maintain original sentence structure and format.
+- Apply ONLY the provided instructions per field.
+- Do NOT add new facts.
+- Do NOT remove content unless instructed.
+- If instruction are to replace client name, you MUST replace ALL client/entity names even if the input is only a name.
+- For standalone names (e.g. "DBS Bank Ltd."), convert to a generic description (e.g. "a leading Southeast Asian bank").
+- Name of the client should never appear anywhere in all fields if replace client name is chosen
+- If omit deal value is given under instructions, DO NOT include any values like $2000 etc, no hard numbers at all.
+
+Structure rules:
+- If type = "continuation":
+  - MUST remain a continuation clause
+  - MUST start lowercase
+  - MUST NOT form a full sentence
+  - MUST NOT introduce a subject (e.g. "The firm", "We")
+
+- If type = "sentence":
+  - MUST remain a complete sentence
+  - Keep grammar intact
+
+Output:
+- Return valid JSON ONLY
+- Keep EXACT same keys
+- Each value MUST remain a single string
+- Do NOT add prefixes, suffixes, or explanations
+- Do NOT add line breaks unless they already exist
+`,
+    input_data: paraphraseInput
+  }
+
+  const paraphraseResult = await llmService.generateVariables(
+    {},
+    [paraphraseTask]
+  )
+
+  const parsed = extractAndFixJson(
+    paraphraseResult.paraphrased_bundle
+  )
+
+  if (parsed) {
+    Object.keys(parsed).forEach(key => {
+      if (FIELD_TYPES[key] === "continuation") {
+        parsed[key] = parsed[key]
+          .trim()
+          .replace(/^[A-Z]/, c => c.toLowerCase())
+          .replace(/\.\s*$/, '')
+      }
+    })
+
+const actual = parsed.relevant_data || parsed
+
+Object.keys(actual).forEach(key => {
+  let value = actual[key]
+
+  if (value === undefined || value === null) return
+
+  // extract .text if object
+  if (typeof value === 'object' && value.text) {
+    value = value.text
+  }
+
+  if (FIELD_TYPES[key] === "continuation") {
+    value = value
+      .trim()
+      .replace(/^[A-Z]/, c => c.toLowerCase())
+      .replace(/\.\s*$/, '')
+  }
+
+  llmVariables[key] = value
+})
+
+    deal_rows.forEach((row, idx) => {
+      const key = `deal_summary_${idx}`
+
+      if (llmVariables[key]) {
+        row.deal_summary = llmVariables[key]
+      }
+    })
+  }
+}
+
+console.log("🔥 SUMMARY:", llmVariables.track_record_summary)
+console.log("🔥 ITEMS:", llmVariables.track_record_items)
+
+// =====================================================
     // FINAL PAYLOAD
     // =====================================================
-
+    console.log("📤 FINAL PAYLOAD CHECK:", {
+  pg1: llmVariables.pg_client_name1,
+  deal1: llmVariables.deal_desc_pg1
+})
     return {
       ...manualFields,
       ...llmVariables,
       existing_client_bool,
       main_practice_area,
+  pg_client_name1: llmVariables.pg_client_name1,
+  pg_client_name2: llmVariables.pg_client_name2,
+  pg_client_name3: llmVariables.pg_client_name3,
 
+  deal_desc_pg1: llmVariables.deal_desc_pg1,
+  deal_desc_pg2: llmVariables.deal_desc_pg2,
+  deal_desc_pg3: llmVariables.deal_desc_pg3,
       previous_client1,
       previous_client2,
       previous_client3,
@@ -854,28 +1291,28 @@ Object.assign(
       lead_partner1_pg: leads[0]?.pg || '',
       lead_partner1_email: leads[0]?.email || '',
       lead_partner1_phone: leads[0]?.phone || '',
-      lead_partner1_admissions: leads[0]?.admissions || '',
+      lead_partner1_admissions: leads[0]?.qualifications || '',
 
       lead_partner2_name: leads[1]?.name || '',
       lead_partner2_desc: leads[1] ? formatDesc(leads[1]) : '',
       lead_partner2_pg: leads[1]?.pg || '',
       lead_partner2_email: leads[1]?.email || '',
       lead_partner2_phone: leads[1]?.phone || '',
-      lead_partner2_admissions: leads[1]?.admissions || '',
+      lead_partner2_admissions: leads[1]?.qualifications || '',
 
       partner3: lawyer3?.name || '',
       lawyer_desc3: lawyer3 ? formatDesc(lawyer3) : '',
       lawyer_pg3: lawyer3?.pg || '',
       partner3_email: lawyer3?.email || '',
       partner3_phone: lawyer3?.phone || '',
-      partner3_admissions: lawyer3?.admissions || '',
+      partner3_admissions: lawyer3?.qualifications || '',
 
       partner4: lawyer4?.name || '',
       lawyer_desc4: lawyer4 ? formatDesc(lawyer4) : '',
       lawyer_pg4: lawyer4?.pg || '',
       partner4_email: lawyer4?.email || '',
       partner4_phone: lawyer4?.phone || '',
-      partner4_admissions: lawyer4?.admissions || '',
+      partner4_admissions: lawyer4?.qualifications || '',
 
       partner_rows,
 

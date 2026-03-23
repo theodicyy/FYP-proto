@@ -62,7 +62,7 @@ Output:
             source_text=full_prompt,
             tone="formal, professional",
             instructions="Follow the instructions above exactly.",
-            max_words=120
+            max_words=300
         )
 
         results.append({
