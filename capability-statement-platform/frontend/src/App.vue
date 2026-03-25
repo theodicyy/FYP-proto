@@ -36,6 +36,17 @@
                 </svg>
                 Aggregation
               </router-link>
+              <router-link
+                v-if="authStore.isAdmin"
+                to="/upload"
+                class="nav-link"
+                :class="{ 'nav-link-active': $route.path === '/upload' }"
+              >
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                </svg>
+                Excel import
+              </router-link>
             </template>
           </div>
 
@@ -160,6 +171,15 @@
                 :class="{ 'bg-primary-50 text-primary-700': $route.path === '/aggregation' }"
               >
                 Aggregation
+              </router-link>
+              <router-link
+                v-if="authStore.isAdmin"
+                to="/upload"
+                @click="showMobileMenu = false"
+                class="block px-4 py-3 rounded-lg text-secondary-700 hover:bg-secondary-50"
+                :class="{ 'bg-primary-50 text-primary-700': $route.path === '/upload' }"
+              >
+                Excel import
               </router-link>
 
               <!-- Admin Links (Mobile) -->

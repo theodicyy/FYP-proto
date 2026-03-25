@@ -315,6 +315,10 @@ async generateStatement(payload) {
     return await api.post('/cap-statements/upload-doc', formData, {
       headers: { 'Content-Type': 'multipart/form-data' }
     })
+  },
+
+  async bulkCoreImport(mode, tables) {
+    return await api.post('/upload/bulk-core', { mode, tables })
   }
 }
 

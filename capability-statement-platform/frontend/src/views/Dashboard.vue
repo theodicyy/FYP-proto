@@ -174,6 +174,24 @@
               </div>
             </div>
           </router-link>
+
+          <router-link 
+            v-if="authStore.isAdmin"
+            to="/upload" 
+            class="group p-5 rounded-xl border border-secondary-200 hover:border-teal-300 hover:bg-teal-50/50 transition-all duration-200"
+          >
+            <div class="flex items-start gap-4">
+              <div class="w-12 h-12 rounded-xl bg-teal-100 flex items-center justify-center text-teal-600 group-hover:scale-110 transition-transform duration-200">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                </svg>
+              </div>
+              <div>
+                <h3 class="font-medium text-secondary-900 group-hover:text-teal-700 transition-colors">Excel bulk import</h3>
+                <p class="text-sm text-secondary-500 mt-1">Upload spreadsheets to add or update lawyers, deals, and awards</p>
+              </div>
+            </div>
+          </router-link>
         </div>
       </div>
 

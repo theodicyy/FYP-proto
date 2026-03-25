@@ -137,6 +137,15 @@ Open **http://localhost:5173** and login with default credentials.
 - `POST /api/v1/cap-statements/:id/versions` - Create version
 - `PUT /api/v1/cap-statements/:id/versions/:versionId` - Update version
 
+### Excel Bulk Import (Testing)
+- Open the Excel upload UI at `http://localhost:5173/upload` (admin only).
+- For testing the workflow, use `sample_db.xlsx` as the starting template:
+  - File location (from this README): `../sample_db.xlsx`
+  - Edit the sheets in that workbook and re-upload.
+- Sheet upload rules:
+  - Sheet name must match a table name in the import contract (`lawyers`, `awards`, `deals`, `deal_lawyers`).
+  - Header column names must match the contract exactly.
+
 ## Environment Variables
 
 ### Backend (.env)

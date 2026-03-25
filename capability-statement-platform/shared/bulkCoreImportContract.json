@@ -1,0 +1,80 @@
+{
+  "tables": {
+    "lawyers": {
+      "type": "primary",
+      "columns": {
+        "id": { "type": "int", "required": false, "enum_values": [], "is_foreign_key": false, "references": { "table": "", "column": "" } },
+        "first_name": { "type": "string", "required": false, "enum_values": [], "is_foreign_key": false, "references": { "table": "", "column": "" } },
+        "last_name": { "type": "string", "required": false, "enum_values": [], "is_foreign_key": false, "references": { "table": "", "column": "" } },
+        "email": { "type": "string", "required": false, "enum_values": [], "is_foreign_key": false, "references": { "table": "", "column": "" } },
+        "practice_group": { "type": "string", "required": false, "enum_values": [], "is_foreign_key": false, "references": { "table": "", "column": "" } },
+        "title": { "type": "string", "required": false, "enum_values": [], "is_foreign_key": false, "references": { "table": "", "column": "" } },
+        "designation": { "type": "string", "required": false, "enum_values": [], "is_foreign_key": false, "references": { "table": "", "column": "" } },
+        "lawyer_designation": { "type": "string", "required": false, "enum_values": [], "is_foreign_key": false, "references": { "table": "", "column": "" } },
+        "phone": { "type": "string", "required": false, "enum_values": [], "is_foreign_key": false, "references": { "table": "", "column": "" } },
+        "qualifications": { "type": "string", "required": false, "enum_values": [], "is_foreign_key": false, "references": { "table": "", "column": "" } },
+        "admissions": { "type": "string", "required": false, "enum_values": [], "is_foreign_key": false, "references": { "table": "", "column": "" } },
+        "bio": { "type": "string", "required": false, "enum_values": [], "is_foreign_key": false, "references": { "table": "", "column": "" } },
+        "years_experience": { "type": "int", "required": false, "enum_values": [], "is_foreign_key": false, "references": { "table": "", "column": "" } },
+        "lawyer_awards": { "type": "string", "required": false, "enum_values": [], "is_foreign_key": false, "references": { "table": "", "column": "" } },
+        "awarding_org": { "type": "string", "required": false, "enum_values": [], "is_foreign_key": false, "references": { "table": "", "column": "" } }
+      }
+    },
+    "deals": {
+      "type": "primary",
+      "columns": {
+        "id": { "type": "int", "required": false, "enum_values": [], "is_foreign_key": false, "references": { "table": "", "column": "" } },
+        "deal_name": { "type": "string", "required": false, "enum_values": [], "is_foreign_key": false, "references": { "table": "", "column": "" } },
+        "client_name": { "type": "string", "required": false, "enum_values": [], "is_foreign_key": false, "references": { "table": "", "column": "" } },
+        "deal_summary": { "type": "string", "required": false, "enum_values": [], "is_foreign_key": false, "references": { "table": "", "column": "" } },
+        "significant_features": { "type": "string", "required": false, "enum_values": [], "is_foreign_key": false, "references": { "table": "", "column": "" } },
+        "notability": { "type": "enum", "required": false, "enum_values": ["Yes", "No"], "is_foreign_key": false, "references": { "table": "", "column": "" } },
+        "notable_reason": { "type": "string", "required": false, "enum_values": [], "is_foreign_key": false, "references": { "table": "", "column": "" } },
+        "acting_for": { "type": "string", "required": false, "enum_values": [], "is_foreign_key": false, "references": { "table": "", "column": "" } },
+        "deal_value": { "type": "decimal", "required": false, "enum_values": [], "is_foreign_key": false, "references": { "table": "", "column": "" } },
+        "currency": { "type": "string", "required": false, "enum_values": [], "is_foreign_key": false, "references": { "table": "", "column": "" } },
+        "jurisdiction": { "type": "string", "required": false, "enum_values": [], "is_foreign_key": false, "references": { "table": "", "column": "" } },
+        "deal_date": { "type": "date", "required": false, "enum_values": [], "is_foreign_key": false, "references": { "table": "", "column": "" } },
+        "signing_date": { "type": "date", "required": false, "enum_values": [], "is_foreign_key": false, "references": { "table": "", "column": "" } },
+        "completion_date": { "type": "date", "required": false, "enum_values": [], "is_foreign_key": false, "references": { "table": "", "column": "" } },
+        "publicity_purposes": { "type": "json", "required": false, "enum_values": [], "is_foreign_key": false, "references": { "table": "", "column": "" } },
+        "confidentiality": { "type": "json", "required": false, "enum_values": [], "is_foreign_key": false, "references": { "table": "", "column": "" } },
+        "transaction_types": { "type": "json", "required": false, "enum_values": [], "is_foreign_key": false, "references": { "table": "", "column": "" } },
+        "srb_related": { "type": "json", "required": false, "enum_values": [], "is_foreign_key": false, "references": { "table": "", "column": "" } },
+        "pe_related": { "type": "json", "required": false, "enum_values": [], "is_foreign_key": false, "references": { "table": "", "column": "" } },
+        "startup_or_vc_related": { "type": "json", "required": false, "enum_values": [], "is_foreign_key": false, "references": { "table": "", "column": "" } },
+        "featured_other_areas": { "type": "json", "required": false, "enum_values": [], "is_foreign_key": false, "references": { "table": "", "column": "" } },
+        "deal_pg": { "type": "json", "required": false, "enum_values": [], "is_foreign_key": false, "references": { "table": "", "column": "" } },
+        "past_clients": { "type": "string", "required": false, "enum_values": [], "is_foreign_key": false, "references": { "table": "", "column": "" } },
+        "deal_industry": { "type": "string", "required": false, "enum_values": [], "is_foreign_key": false, "references": { "table": "", "column": "" } },
+        "remarks": { "type": "string", "required": false, "enum_values": [], "is_foreign_key": false, "references": { "table": "", "column": "" } },
+        "partner_approval": { "type": "enum", "required": false, "enum_values": ["Yes", "No"], "is_foreign_key": false, "references": { "table": "", "column": "" } },
+        "partner_initial": { "type": "string", "required": false, "enum_values": [], "is_foreign_key": false, "references": { "table": "", "column": "" } },
+        "laywer_name": { "type": "string", "required": false, "enum_values": [], "is_foreign_key": false, "references": { "table": "", "column": "" } }
+      }
+    },
+    "awards": {
+      "type": "primary",
+      "columns": {
+        "id": { "type": "int", "required": false, "enum_values": [], "is_foreign_key": false, "references": { "table": "", "column": "" } },
+        "award_name": { "type": "string", "required": false, "enum_values": [], "is_foreign_key": false, "references": { "table": "", "column": "" } },
+        "awarding_organization": { "type": "string", "required": false, "enum_values": [], "is_foreign_key": false, "references": { "table": "", "column": "" } },
+        "award_year": { "type": "int", "required": false, "enum_values": [], "is_foreign_key": false, "references": { "table": "", "column": "" } },
+        "category": { "type": "string", "required": false, "enum_values": [], "is_foreign_key": false, "references": { "table": "", "column": "" } },
+        "description": { "type": "string", "required": false, "enum_values": [], "is_foreign_key": false, "references": { "table": "", "column": "" } },
+        "award_pg": { "type": "json", "required": false, "enum_values": [], "is_foreign_key": false, "references": { "table": "", "column": "" } },
+        "publications": { "type": "string", "required": false, "enum_values": [], "is_foreign_key": false, "references": { "table": "", "column": "" } }
+      }
+    },
+    "deal_lawyers": {
+      "type": "relation",
+      "columns": {
+        "deal_id": { "type": "int", "required": true, "enum_values": [], "is_foreign_key": true, "references": { "table": "deals", "column": "id" } },
+        "lawyer_id": { "type": "int", "required": true, "enum_values": [], "is_foreign_key": true, "references": { "table": "lawyers", "column": "id" } },
+        "role": { "type": "enum", "required": false, "enum_values": ["Partner", "Senior Associate", "Associate", "Other"], "is_foreign_key": false, "references": { "table": "", "column": "" } }
+      }
+    }
+  },
+  "insert_order": ["lawyers", "awards", "deals", "deal_lawyers"],
+  "excluded_tables": ["users", "user_sessions", "templates", "cap_statements", "cap_statement_versions", "lawyer_awards", "deal_awards", "cap_statement_generate"]
+}

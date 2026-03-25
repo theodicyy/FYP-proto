@@ -14,6 +14,7 @@ import AdminAwards from '../views/admin/AwardsManagement.vue'
 import TemplatePreview from '../views/TemplatePreview.vue'
 import Aggregation from '../views/Aggregation.vue'
 import Library from '../views/Library.vue'
+import ExcelUpload from '../views/ExcelUpload.vue'
 
 const routes = [
   {
@@ -87,6 +88,13 @@ const routes = [
     name: 'Library',
     component: Library,
     meta: { requiresAuth: true }
+  },
+
+  {
+    path: '/upload',
+    name: 'ExcelUpload',
+    component: ExcelUpload,
+    meta: { requiresAuth: true, requiresAdmin: true }
   }
 ]
 
