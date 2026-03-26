@@ -21,36 +21,45 @@
       <div class="flex flex-col lg:flex-row lg:items-end gap-4">
         <div class="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div class="input-group">
-            <label class="label">Practice Group (Lawyers)</label>
-            <select v-model="practiceGroupFilter" class="select">
-              <option value="">All Practice Groups</option>
-              <option
-                v-for="pg in uniquePracticeGroups"
-                :key="pg"
-                :value="pg"
-              >{{ pg }}</option>
-            </select>
+            <label class="label">
+              Practice Group (Lawyers)
+              <span v-if="practiceGroupFilter.length > 0" class="ml-1 text-sm text-primary-600">
+                ({{ practiceGroupFilter.length }} selected)
+              </span>
+            </label>
+            <MultiSelectDropdown
+              v-model="practiceGroupFilter"
+              :options="uniquePracticeGroups"
+              placeholder="All practice groups"
+            />
           </div>
           <div class="input-group">
-            <label class="label">Industry (Deals)</label>
-            <select v-model="industryFilter" class="select">
-              <option value="">All Industries</option>
-              <option
-                v-for="ind in uniqueIndustries"
-                :key="ind"
-                :value="ind"
-              >{{ ind }}</option>
-            </select>
+            <label class="label">
+              Industry (Deals)
+              <span v-if="industryFilter.length > 0" class="ml-1 text-sm text-primary-600">
+                ({{ industryFilter.length }} selected)
+              </span>
+            </label>
+            <MultiSelectDropdown
+              v-model="industryFilter"
+              :options="uniqueIndustries"
+              placeholder="All industries"
+            />
           </div>
           <div class="input-group">
             <label class="label">Year</label>
-            <input 
-              type="number" 
-              v-model="localFilters.year" 
-              @change="applyFilters"
-              placeholder="Enter year"
+            <input
+              type="text"
+              v-model="localFilters.year"
+              @input="applyFilters"
+              placeholder="e.g. 2024"
               class="input"
+              list="year-options"
+              autocomplete="off"
             />
+            <datalist id="year-options">
+              <option v-for="y in uniqueYears" :key="y" :value="y" />
+            </datalist>
           </div>
         </div>
         <button @click="clearFilters" class="btn btn-secondary flex-shrink-0">
@@ -364,6 +373,7 @@ import { ref, computed, onMounted, h } from 'vue'
 import { useDataStore } from '../stores/dataStore'
 import { useRouter } from 'vue-router'
 import { useCreateFlowStore } from '../stores/createFlowStore'
+import MultiSelectDropdown from '../components/MultiSelectDropdown.vue'
 const router = useRouter()
 const flow = useCreateFlowStore()
 
@@ -375,8 +385,8 @@ function continueToConfig() {
 const dataStore = useDataStore()
 const activeTab = ref('lawyers')
 const searchQuery = ref('')
-const practiceGroupFilter = ref('')
-const industryFilter = ref('')
+const practiceGroupFilter = ref([])
+const industryFilter = ref([])
 const localFilters = ref({
   year: null
 })
@@ -465,6 +475,19 @@ function dealInIndustry(deal, selectedIndustry) {
   return ind && ind.toLowerCase() === selectedIndustry.toLowerCase()
 }
 
+/** Unique years from deals + awards datasets, sorted descending. */
+const uniqueYears = computed(() => {
+  const seen = new Set()
+  for (const deal of dataStore.deals) {
+    const y = getDealYearFromDate(deal.deal_date)
+    if (y) seen.add(String(y))
+  }
+  for (const award of dataStore.awards) {
+    if (award.award_year) seen.add(String(award.award_year))
+  }
+  return Array.from(seen).sort((a, b) => b - a)
+})
+
 /** Unique industries from current deals dataset; dedupe case-insensitive, sorted. */
 const uniqueIndustries = computed(() => {
   const seen = new Map()
@@ -479,8 +502,8 @@ const uniqueIndustries = computed(() => {
 
 const filteredLawyers = computed(() => {
   let list = dataStore.lawyers
-  if (practiceGroupFilter.value) {
-    list = list.filter(l => lawyerInPracticeGroup(l, practiceGroupFilter.value))
+  if (practiceGroupFilter.value.length > 0) {
+    list = list.filter(l => practiceGroupFilter.value.some(sg => lawyerInPracticeGroup(l, sg)))
   }
   if (searchTerm.value) {
     list = list.filter(l => lawyerMatchesSearch(l, searchTerm.value))
@@ -496,8 +519,8 @@ function getDealYearFromDate(date) {
 const filteredDeals = computed(() => {
   let list = dataStore.deals
 
-  if (industryFilter.value) {
-    list = list.filter(d => dealInIndustry(d, industryFilter.value))
+  if (industryFilter.value.length > 0) {
+    list = list.filter(d => industryFilter.value.some(si => dealInIndustry(d, si)))
   }
 
   // FIX: filter using year extracted from deal_date
@@ -526,10 +549,10 @@ const filteredDeals = computed(() => {
 const filteredAwards = computed(() => {
   let list = dataStore.awards
 
-  if (practiceGroupFilter.value) {
+  if (practiceGroupFilter.value.length > 0) {
     list = list.filter(a =>
-      parseAwardPracticeGroups(a).some(
-        pg => pg.toLowerCase() === practiceGroupFilter.value.toLowerCase()
+      practiceGroupFilter.value.some(sg =>
+        parseAwardPracticeGroups(a).some(pg => pg.toLowerCase() === sg.toLowerCase())
       )
     )
   }
@@ -637,8 +660,8 @@ function applyFilters() {
 }
 
 function clearFilters() {
-  practiceGroupFilter.value = ''
-  industryFilter.value = ''
+  practiceGroupFilter.value = []
+  industryFilter.value = []
   localFilters.value = {
     year: null
   }
