@@ -1,7 +1,10 @@
 <template>
-  <div id="app" class="min-h-screen flex flex-col">
+  <div
+    id="app"
+    :class="isLoginRoute ? 'h-svh min-h-0 overflow-hidden flex flex-col' : 'min-h-screen flex flex-col'"
+  >
     <!-- Modern Navigation -->
-    <nav class="sticky top-0 z-40 bg-white/80 backdrop-blur-xl border-b border-secondary-100">
+    <nav v-if="!isLoginRoute" class="sticky top-0 z-40 bg-white/80 backdrop-blur-xl border-b border-secondary-100">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex items-center justify-between h-16 lg:h-18">
           <!-- Logo & Brand -->
@@ -216,18 +219,26 @@
     </nav>
 
     <!-- Main Content -->
-    <main class="flex-1">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <main :class="isLoginRoute ? 'flex-1 min-h-0 overflow-hidden flex flex-col' : 'flex-1'">
+      <div
+        v-if="!isLoginRoute"
+        class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1"
+      >
         <router-view v-slot="{ Component }">
           <Transition name="page" mode="out-in">
             <component :is="Component" />
           </Transition>
         </router-view>
       </div>
+      <router-view v-else v-slot="{ Component }" class="flex-1 min-h-0 flex flex-col">
+        <Transition name="page" mode="out-in">
+          <component :is="Component" class="min-h-0 flex-1" />
+        </Transition>
+      </router-view>
     </main>
 
     <!-- Footer -->
-    <footer class="border-t border-secondary-100 bg-white/50">
+    <footer v-if="!isLoginRoute" class="border-t border-secondary-100 bg-white/50">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
           <div class="flex items-center gap-3">
@@ -248,12 +259,14 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from './stores/authStore'
 import { setAuthToken } from './services/dataService'
 
 const router = useRouter()
+const route = useRoute()
+const isLoginRoute = computed(() => route.path === '/login')
 const authStore = useAuthStore()
 const showAdminMenu = ref(false)
 const showMobileMenu = ref(false)
